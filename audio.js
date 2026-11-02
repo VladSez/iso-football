@@ -1,6 +1,8 @@
 let audioContext
 let masterGain
-let soundEnabled = true
+let musicGain
+let musicEnabled = true
+let effectsEnabled = true
 let audioPaused = false
 
 function reportAudioError(error) {
@@ -9,7 +11,7 @@ function reportAudioError(error) {
 
 /** Starts audio inside a user gesture, as required by browser autoplay rules. */
 export function startAudio() {
-	if (!soundEnabled || audioPaused) return
+	if (!(musicEnabled || effectsEnabled) || audioPaused) return
 	if (!audioContext) {
 		audioContext = new AudioContext()
 		masterGain = audioContext.createGain()
@@ -17,8 +19,8 @@ export function startAudio() {
 		const music = audioContext.createBufferSource()
 		music.buffer = createMusicBuffer(audioContext)
 		music.loop = true
-		const musicGain = audioContext.createGain()
-		musicGain.gain.value = 0.75
+		musicGain = audioContext.createGain()
+		musicGain.gain.value = musicEnabled ? 0.75 : 0
 		music.connect(musicGain).connect(masterGain)
 		music.start()
 	}
@@ -26,17 +28,16 @@ export function startAudio() {
 		audioContext.resume().catch(reportAudioError)
 }
 
-export function toggleSound() {
-	soundEnabled = !soundEnabled
-	if (masterGain) {
-		masterGain.gain.setTargetAtTime(
-			soundEnabled ? 1 : 0,
+export function setSound({ music, effects }) {
+	musicEnabled = music
+	effectsEnabled = effects
+	if (musicGain) {
+		musicGain.gain.setTargetAtTime(
+			music ? 0.75 : 0,
 			audioContext.currentTime,
 			0.02,
 		)
 	}
-	if (soundEnabled) startAudio()
-	return soundEnabled
 }
 
 export function setAudioPaused(paused) {
@@ -108,7 +109,7 @@ function createMusicBuffer(context) {
 }
 
 export function playSound(kind) {
-	if (!soundEnabled || audioPaused) return
+	if (!effectsEnabled || audioPaused) return
 	startAudio()
 	const sounds = {
 		kick: [105, 0.08],

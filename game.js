@@ -1,5 +1,11 @@
-import { PITCH, GOAL, BALL_RADIUS, createShot, stepBall } from './physics.js'
-import { startAudio, toggleSound, setAudioPaused, playSound } from './audio.js'
+import {
+	PITCH,
+	GOAL,
+	BALL_RADIUS,
+	createShot,
+	stepBall,
+} from './physics.js?v=2'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=2'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -40,6 +46,8 @@ const nodes = Object.fromEntries(
 		'help-close',
 		'help-play',
 		'sound',
+		'sound-menu',
+		'sound-options',
 		'stage',
 		'callout',
 		'pause-overlay',
@@ -559,7 +567,7 @@ function openHelp() {
 
 for (const eventName of ['pointerdown', 'keydown']) {
 	window.addEventListener(eventName, (event) => {
-		if (event.target !== nodes.sound) startAudio()
+		if (!nodes['sound-menu'].contains(event.target)) startAudio()
 	})
 }
 
@@ -586,7 +594,10 @@ window.addEventListener('keydown', (event) => {
 	if (event.ctrlKey || event.metaKey || event.altKey) return
 	if (nodes.help.open) return
 	// Preserve keyboard activation for focused buttons and links.
-	if (document.activeElement?.matches('button, a') && event.code !== 'Escape')
+	if (
+		document.activeElement?.matches('button, a, input') &&
+		event.code !== 'Escape'
+	)
 		return
 	if (controlled.includes(event.code)) event.preventDefault()
 	if (event.code === 'Escape') {
@@ -653,12 +664,66 @@ nodes.resume.addEventListener('click', () => {
 	pauseGame(false)
 	canvas.focus()
 })
-nodes.sound.addEventListener('click', () => {
-	const soundEnabled = toggleSound()
-	nodes.sound.textContent = soundEnabled ? 'Sound on' : 'Sound off'
-	nodes.sound.setAttribute('aria-pressed', String(soundEnabled))
-	canvas.focus()
+
+const SOUND_MODES = {
+	all: { label: 'Sound on', music: true, effects: true },
+	effects: { label: 'Music off', music: false, effects: true },
+	off: { label: 'Sound off', music: false, effects: false },
+}
+const SOUND_STORAGE_KEY = 'iso-football:sound'
+
+function readSoundMode() {
+	try {
+		const saved = localStorage.getItem(SOUND_STORAGE_KEY)
+		if (saved in SOUND_MODES) return saved
+	} catch {}
+	return 'all'
+}
+
+function applySoundMode(mode) {
+	setSound(SOUND_MODES[mode])
+	nodes['sound-options'].querySelector(`[value="${mode}"]`).checked = true
+	updateSoundButton()
+}
+
+function updateSoundButton() {
+	const mode = nodes['sound-options'].querySelector(':checked').value
+	const open = !nodes['sound-options'].hidden
+	nodes.sound.textContent = `${SOUND_MODES[mode].label} ${open ? '▴' : '▾'}`
+	nodes.sound.setAttribute('aria-expanded', String(open))
+}
+
+function setSoundMenuOpen(open) {
+	nodes['sound-options'].hidden = !open
+	updateSoundButton()
+	if (open) nodes['sound-options'].querySelector(':checked').focus()
+}
+
+nodes.sound.addEventListener('click', () =>
+	setSoundMenuOpen(nodes['sound-options'].hidden),
+)
+nodes['sound-options'].addEventListener('change', (event) => {
+	const mode = event.target.value
+	applySoundMode(mode)
+	startAudio()
+	try {
+		localStorage.setItem(SOUND_STORAGE_KEY, mode)
+	} catch {}
 })
+nodes['sound-menu'].addEventListener('keydown', (event) => {
+	if (event.code !== 'Escape' || nodes['sound-options'].hidden) return
+	event.stopPropagation()
+	setSoundMenuOpen(false)
+	nodes.sound.focus()
+})
+document.addEventListener('pointerdown', (event) => {
+	if (!nodes['sound-menu'].contains(event.target)) setSoundMenuOpen(false)
+})
+nodes['sound-menu'].addEventListener('focusout', (event) => {
+	if (event.relatedTarget && !nodes['sound-menu'].contains(event.relatedTarget))
+		setSoundMenuOpen(false)
+})
+applySoundMode(readSoundMode())
 window.addEventListener('resize', resize)
 
 bakePitch()
