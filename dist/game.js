@@ -573,7 +573,11 @@ function resize() {
 		(rect.height - 24) / 190,
 		3,
 	)
-	const scale = Math.max(0.5, Math.floor(available * dpr) / dpr)
+	// Small windows need fractional scaling to use their available width.
+	const scale = Math.max(
+		0.5,
+		available < 1.5 ? available : Math.floor(available * dpr) / dpr,
+	)
 	canvas.style.width = `${W * scale}px`
 	canvas.style.height = `${H * scale}px`
 }
