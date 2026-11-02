@@ -4,8 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=2'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=2'
+} from './physics.js?v=3'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=3'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=3'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -24,10 +25,8 @@ const KEEPER_COLORS = {
 }
 const POST = [241, 237, 217]
 const NET = [187, 193, 166]
-const STEEL = [89, 107, 87]
 const BALL_WHITE = [245, 239, 217]
 const BALL_DARK = [40, 49, 47]
-const WOOD = [145, 111, 73]
 const nodes = Object.fromEntries(
 	[
 		'goals',
@@ -48,6 +47,9 @@ const nodes = Object.fromEntries(
 		'sound',
 		'sound-menu',
 		'sound-options',
+		'pitch',
+		'pitch-menu',
+		'pitch-options',
 		'stage',
 		'callout',
 		'pause-overlay',
@@ -69,7 +71,7 @@ const state = {
 	keys: new Set(),
 	phase: 'ready',
 	power: 0,
-	shotKind: 'low',
+	shotKind: 'chip',
 	chargeSource: undefined,
 	ball: undefined,
 	returnAt: undefined,
@@ -82,64 +84,7 @@ const state = {
 	saves: 0,
 	paused: false,
 	scoredAt: -10,
-}
-
-function groundColor(x, y, ix, iy, index) {
-	const edge =
-		((Math.abs(x) / 12.5) ** 6 + (Math.abs(y) / 10.1) ** 6) ** (1 / 6)
-	const ragged = edge + (noise(x * 1.7, y * 1.7) - 0.5) * 0.09
-	if (ragged > 1.03 || (ragged > 0.9 && hash(ix, iy) < (ragged - 0.9) / 0.13))
-		return 0
-	const grain = (hash(ix, iy) - 0.5) * 9 + (noise(x * 1.4, y * 1.4) - 0.5) * 8
-	if (Math.abs(x) <= 9 && Math.abs(y) <= 6.5) {
-		kinds[index] = 1
-		const stripe = Math.floor((x + 9) / 2.25) % 2
-		let color = stripe ? [121, 150, 83] : [130, 157, 89]
-		const boundary =
-			(Math.abs(Math.abs(x) - 8.8) < 0.065 && Math.abs(y) <= 6.1) ||
-			(Math.abs(Math.abs(y) - 6.05) < 0.065 && Math.abs(x) < 8.85)
-		const penaltyBox =
-			(Math.abs(x + 3.4) < 0.065 && Math.abs(y) < 4.4) ||
-			(Math.abs(Math.abs(y) - 4.35) < 0.065 && x < -3.4 && x > -8.8)
-		const goalBox =
-			(Math.abs(x + 7) < 0.065 && Math.abs(y) < 3.35) ||
-			(Math.abs(Math.abs(y) - 3.3) < 0.065 && x < -7 && x > -8.8)
-		const arc = Math.abs(Math.hypot(x + 5.2, y) - 2.75) < 0.065 && x > -3.4
-		const spot = Math.hypot(x + 5.2, y) < 0.105
-		const halfway = Math.abs(x - 8.75) < 0.07
-		const centerArc = Math.abs(Math.hypot(x - 8.75, y) - 2.1) < 0.065
-		if (
-			boundary ||
-			penaltyBox ||
-			goalBox ||
-			arc ||
-			spot ||
-			halfway ||
-			centerArc
-		)
-			color = [226, 226, 186]
-		const wear = Math.exp(-((x + 7.8) ** 2 / 2 + (y * y) / 5)) * 0.65
-		return rgb(
-			lerp(color[0], 157, wear) + grain,
-			lerp(color[1], 146, wear) + grain,
-			lerp(color[2], 98, wear) + grain,
-		)
-	}
-	if (y < -7 && y > -8.25 && x > -9.5 && x < 10) {
-		kinds[index] = 2
-		return rgb(181 + grain, 173 + grain, 147 + grain)
-	}
-	kinds[index] = KIND_GRASS
-	const tone = clamp(
-		Math.floor(noise(x * 0.8, y * 0.8) * 3.7 + hash(ix, iy)),
-		0,
-		4,
-	)
-	return rgb(...GRASS[tone])
-}
-
-function line3D(from, to, radius, color) {
-	capsule(from, to, radius, radius, () => color, 'solid')
+	court: COURTS.neighborhood,
 }
 
 function drawGoal() {
@@ -181,13 +126,19 @@ function drawGoal() {
 }
 
 function bakePitch() {
+	const court = state.court
 	zb.fill(-1e9)
 	pix.fill(rgb(255, 255, 255))
+	ground.fill(0)
+	kinds.fill(KIND_NONE)
+	shadowMask.fill(0)
+	tufts.length = 0
+	leaves.length = 0
 	for (let iy = 0; iy < H; iy++)
 		for (let ix = 0; ix < W; ix++) {
 			const p = unproject(ix + 0.5, iy + 0.5)
 			const index = iy * W + ix
-			const color = groundColor(p.x, p.y, ix, iy, index)
+			const color = court.ground(p.x, p.y, ix, iy, index)
 			if (!color) continue
 			pix[index] = color
 			ground[index] = 1
@@ -195,20 +146,7 @@ function bakePitch() {
 		}
 	groundZ.set(zb)
 	growGrass()
-	// A low boundary fence and a bench sit beyond the playable grass.
-	for (let x = -9; x <= 9; x += 3)
-		line3D([x, -8.35, 0], [x, -8.35, 1.6], 0.06, STEEL)
-	for (const z of [0.4, 1.35])
-		line3D([-9, -8.35, z], [9, -8.35, z], 0.045, STEEL)
-	box(0.3, -8.25, 0.55, 3.8, -7.65, 0.7, WOOD)
-	box(0.3, -8.35, 0.9, 3.8, -8.2, 1.4, WOOD)
-	for (const x of [0.55, 3.45]) box(x, -8.15, 0, x + 0.12, -7.7, 0.55, STEEL)
-	line3D([3.25, -7.95, 0.72], [3.25, -7.95, 1.12], 0.11, [84, 127, 146])
-	box(4.9, -8.2, 0, 5.5, -7.6, 0.8, STEEL)
-	box(4.85, -8.25, 0.8, 5.55, -7.55, 0.9, [59, 80, 66])
-	growTree(-6.7, -8.5, 0.84, 330, 0)
-	growTree(9.7, 4.9, 0.61, 230, 1200)
-	for (let x = 0.5; x < 3.8; x += 0.2) castShadow(x, -7.9, 1, 0.35)
+	court.props()
 	for (const y of [-GOAL.halfWidth, GOAL.halfWidth]) {
 		for (let z = 0; z < GOAL.height; z += 0.15) castShadow(GOAL.x, y, z, 0.1)
 	}
@@ -500,15 +438,16 @@ function drawAim() {
 		const p = project(x, y, 0.03)
 		points.push([p.sx, p.sy])
 	}
-	drawDots(points, rgb(246, 241, 207))
+	drawDots(points, rgb(...(state.court.aim ?? [246, 241, 207])))
 }
 
 function draw() {
 	pix.set(bakedPix)
 	zb.set(bakedZ)
 	pendingShadows.length = 0
-	drawTufts(STILL ? 0 : Math.floor(state.time * WIND_FPS) / WIND_FPS)
-	drawLeaves(STILL ? 0 : Math.floor(state.time * WIND_FPS) / WIND_FPS)
+	const windTime = STILL ? 0 : Math.floor(state.time * WIND_FPS) / WIND_FPS
+	drawTufts(windTime)
+	drawLeaves(windTime)
 	drawGoal()
 	drawAim()
 	const stride = state.walking ? Math.sin(state.stride) * 0.27 : 0.12
@@ -538,6 +477,8 @@ function draw() {
 	flushShadows()
 	applyShadows(groundZ)
 	shadeEdges()
+	state.court.weather?.(windTime)
+	gradeFrame(state.court)
 	ctx.putImageData(image, 0, 0)
 }
 
@@ -665,65 +606,92 @@ nodes.resume.addEventListener('click', () => {
 	canvas.focus()
 })
 
+// A footer button that opens a small radio list above it, like a native select.
+function createMenu(name, labelOf, onChange) {
+	const menu = nodes[`${name}-menu`]
+	const options = nodes[`${name}-options`]
+	const button = nodes[name]
+	const selected = () => options.querySelector(':checked').value
+	const update = () => {
+		const open = !options.hidden
+		button.textContent = `${labelOf(selected())} ${open ? '▴' : '▾'}`
+		button.setAttribute('aria-expanded', String(open))
+	}
+	const setOpen = (open) => {
+		options.hidden = !open
+		update()
+		if (open) options.querySelector(':checked').focus()
+	}
+	button.addEventListener('click', () => setOpen(options.hidden))
+	options.addEventListener('change', () => {
+		onChange(selected())
+		update()
+	})
+	menu.addEventListener('keydown', (event) => {
+		if (event.code !== 'Escape' || options.hidden) return
+		event.stopPropagation()
+		setOpen(false)
+		button.focus()
+	})
+	document.addEventListener('pointerdown', (event) => {
+		if (!menu.contains(event.target)) setOpen(false)
+	})
+	menu.addEventListener('focusout', (event) => {
+		if (event.relatedTarget && !menu.contains(event.relatedTarget))
+			setOpen(false)
+	})
+	return (value) => {
+		options.querySelector(`[value="${value}"]`).checked = true
+		update()
+	}
+}
+
+function readSaved(key, choices, fallback) {
+	try {
+		const saved = localStorage.getItem(key)
+		if (saved in choices) return saved
+	} catch {}
+	return fallback
+}
+
+function save(key, value) {
+	try {
+		localStorage.setItem(key, value)
+	} catch {}
+}
+
 const SOUND_MODES = {
 	all: { label: 'Sound on', music: true, effects: true },
 	effects: { label: 'Music off', music: false, effects: true },
 	off: { label: 'Sound off', music: false, effects: false },
 }
 const SOUND_STORAGE_KEY = 'iso-football:sound'
-
-function readSoundMode() {
-	try {
-		const saved = localStorage.getItem(SOUND_STORAGE_KEY)
-		if (saved in SOUND_MODES) return saved
-	} catch {}
-	return 'all'
-}
-
-function applySoundMode(mode) {
-	setSound(SOUND_MODES[mode])
-	nodes['sound-options'].querySelector(`[value="${mode}"]`).checked = true
-	updateSoundButton()
-}
-
-function updateSoundButton() {
-	const mode = nodes['sound-options'].querySelector(':checked').value
-	const open = !nodes['sound-options'].hidden
-	nodes.sound.textContent = `${SOUND_MODES[mode].label} ${open ? '▴' : '▾'}`
-	nodes.sound.setAttribute('aria-expanded', String(open))
-}
-
-function setSoundMenuOpen(open) {
-	nodes['sound-options'].hidden = !open
-	updateSoundButton()
-	if (open) nodes['sound-options'].querySelector(':checked').focus()
-}
-
-nodes.sound.addEventListener('click', () =>
-	setSoundMenuOpen(nodes['sound-options'].hidden),
+const showSoundMode = createMenu(
+	'sound',
+	(mode) => SOUND_MODES[mode].label,
+	(mode) => {
+		setSound(SOUND_MODES[mode])
+		startAudio()
+		save(SOUND_STORAGE_KEY, mode)
+	},
 )
-nodes['sound-options'].addEventListener('change', (event) => {
-	const mode = event.target.value
-	applySoundMode(mode)
-	startAudio()
-	try {
-		localStorage.setItem(SOUND_STORAGE_KEY, mode)
-	} catch {}
-})
-nodes['sound-menu'].addEventListener('keydown', (event) => {
-	if (event.code !== 'Escape' || nodes['sound-options'].hidden) return
-	event.stopPropagation()
-	setSoundMenuOpen(false)
-	nodes.sound.focus()
-})
-document.addEventListener('pointerdown', (event) => {
-	if (!nodes['sound-menu'].contains(event.target)) setSoundMenuOpen(false)
-})
-nodes['sound-menu'].addEventListener('focusout', (event) => {
-	if (event.relatedTarget && !nodes['sound-menu'].contains(event.relatedTarget))
-		setSoundMenuOpen(false)
-})
-applySoundMode(readSoundMode())
+const soundMode = readSaved(SOUND_STORAGE_KEY, SOUND_MODES, 'all')
+setSound(SOUND_MODES[soundMode])
+showSoundMode(soundMode)
+
+const PITCH_STORAGE_KEY = 'iso-football:pitch'
+const showPitch = createMenu(
+	'pitch',
+	(id) => COURTS[id].label,
+	(id) => {
+		state.court = COURTS[id]
+		bakePitch()
+		save(PITCH_STORAGE_KEY, id)
+	},
+)
+const pitch = readSaved(PITCH_STORAGE_KEY, COURTS, 'neighborhood')
+state.court = COURTS[pitch]
+showPitch(pitch)
 window.addEventListener('resize', resize)
 
 bakePitch()

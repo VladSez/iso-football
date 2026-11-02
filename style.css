@@ -156,6 +156,12 @@ canvas {
 	color: var(--muted);
 	border-radius: 3px;
 }
+.shot-types svg {
+	display: block;
+	width: 16px;
+	height: 12px;
+	overflow: visible;
+}
 .shot-types button[aria-pressed='true'] {
 	background: #f1f5ed;
 	border-color: #dae3d2;
@@ -268,25 +274,26 @@ body.charging #shoot kbd {
 	flex-wrap: wrap;
 	justify-content: flex-end;
 }
-.sound-menu {
+.menu {
 	position: relative;
 }
-.sound-menu fieldset {
+.menu fieldset {
 	position: absolute;
 	bottom: calc(100% + 10px);
 	left: -12px;
 	z-index: 3;
-	width: 170px;
+	width: max-content;
+	min-width: 170px;
 	margin: 0;
 	padding: 6px 0;
 	border: 1px solid #e0e5da;
 	background: white;
 	box-shadow: 0 10px 30px #2823151a;
 }
-.sound-menu fieldset[hidden] {
+.menu fieldset[hidden] {
 	display: none;
 }
-.sound-menu legend {
+.menu legend {
 	position: absolute;
 	top: -20px;
 	left: 12px;
@@ -295,7 +302,7 @@ body.charging #shoot kbd {
 	letter-spacing: 1.6px;
 	color: var(--green);
 }
-.sound-menu label {
+.menu label {
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -304,16 +311,19 @@ body.charging #shoot kbd {
 	color: #4c5244;
 	cursor: pointer;
 }
-.sound-menu label:hover {
+.pitch-button {
+	color: var(--green);
+}
+.menu label:hover {
 	background: #f6f8f2;
 }
-.sound-menu input {
+.menu input {
 	accent-color: var(--green);
 	margin: 0;
 	width: 12px;
 	height: 12px;
 }
-.sound-menu input:focus-visible {
+.menu input:focus-visible {
 	outline: 2px solid var(--green);
 	outline-offset: 2px;
 }
