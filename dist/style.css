@@ -243,9 +243,9 @@ body.charging #shoot kbd {
 .footer {
 	position: absolute;
 	inset: auto 38px 25px;
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
 	gap: 20px;
-	justify-content: space-between;
 	align-items: center;
 	color: var(--muted);
 	font-size: 9px;
@@ -266,7 +266,11 @@ body.charging #shoot kbd {
 }
 .credits {
 	flex-wrap: wrap;
-	justify-content: center;
+	justify-content: flex-end;
+}
+.creator-credit {
+	justify-self: center;
+	white-space: nowrap;
 }
 .credits a {
 	white-space: nowrap;
@@ -380,6 +384,16 @@ dialog dd {
 	background: var(--green);
 	font-size: 11px;
 }
+@media (max-width: 1000px) {
+	.footer {
+		grid-template-columns: 1fr 1fr;
+		gap: 10px 20px;
+	}
+	.creator-credit {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
+}
 @media (max-width: 760px) {
 	.header {
 		inset: 22px 22px auto;
@@ -401,13 +415,17 @@ dialog dd {
 		inset: 145px 0 240px;
 	}
 	.shot-panel {
-		bottom: 93px;
+		bottom: 110px;
 	}
 	.footer {
 		inset: auto 16px 16px;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 12px;
+		grid-template-columns: 1fr;
+		justify-items: center;
+		gap: 10px;
+	}
+	.creator-credit {
+		grid-row: 3;
+		font-size: 8px;
 	}
 	#controls,
 	.credits {
@@ -419,6 +437,7 @@ dialog dd {
 	}
 	.credits {
 		gap: 10px 16px;
+		justify-content: center;
 	}
 	#pause-overlay {
 		inset: 150px 0 240px;
