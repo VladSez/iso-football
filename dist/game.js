@@ -1,4 +1,5 @@
 import { PITCH, GOAL, BALL_RADIUS, createShot, stepBall } from './physics.js'
+import { startAudio, toggleSound, setAudioPaused, playSound } from './audio.js'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -287,6 +288,7 @@ function cancelInput() {
 function pauseGame(paused) {
 	cancelInput()
 	state.paused = paused
+	setAudioPaused(paused || nodes.help.open)
 	nodes['pause-overlay'].hidden = !paused
 	updateMeter()
 }
@@ -531,39 +533,6 @@ function draw() {
 	ctx.putImageData(image, 0, 0)
 }
 
-let audioContext
-let soundEnabled = false
-function playSound(kind) {
-	if (!soundEnabled) return
-	audioContext ??= new AudioContext()
-	if (audioContext.state === 'suspended') audioContext.resume()
-	const sounds = {
-		kick: [105, 0.08],
-		bounce: [155, 0.045],
-		save: [90, 0.12],
-		post: [720, 0.22],
-		goal: [523, 0.3],
-		miss: [175, 0.08],
-	}
-	const [frequency, duration] = sounds[kind]
-	const oscillator = audioContext.createOscillator()
-	const gain = audioContext.createGain()
-	oscillator.type = kind === 'post' ? 'triangle' : 'sine'
-	oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime)
-	oscillator.frequency.exponentialRampToValueAtTime(
-		kind === 'goal' ? 880 : frequency * 0.5,
-		audioContext.currentTime + duration,
-	)
-	gain.gain.setValueAtTime(0.055, audioContext.currentTime)
-	gain.gain.exponentialRampToValueAtTime(
-		0.001,
-		audioContext.currentTime + duration,
-	)
-	oscillator.connect(gain).connect(audioContext.destination)
-	oscillator.start()
-	oscillator.stop(audioContext.currentTime + duration)
-}
-
 function resize() {
 	const rect = nodes.stage.getBoundingClientRect()
 	const dpr = devicePixelRatio || 1
@@ -585,6 +554,13 @@ function resize() {
 function openHelp() {
 	cancelInput()
 	nodes.help.showModal()
+	setAudioPaused(true)
+}
+
+for (const eventName of ['pointerdown', 'keydown']) {
+	window.addEventListener(eventName, (event) => {
+		if (event.target !== nodes.sound) startAudio()
+	})
 }
 
 canvas.addEventListener('pointermove', aimAtPointer)
@@ -670,6 +646,7 @@ for (const id of ['help-close', 'help-play'])
 	nodes[id].addEventListener('click', () => nodes.help.close())
 nodes.help.addEventListener('close', () => {
 	cancelInput()
+	setAudioPaused(state.paused)
 	canvas.focus()
 })
 nodes.resume.addEventListener('click', () => {
@@ -677,10 +654,9 @@ nodes.resume.addEventListener('click', () => {
 	canvas.focus()
 })
 nodes.sound.addEventListener('click', () => {
-	soundEnabled = !soundEnabled
+	const soundEnabled = toggleSound()
 	nodes.sound.textContent = soundEnabled ? 'Sound on' : 'Sound off'
 	nodes.sound.setAttribute('aria-pressed', String(soundEnabled))
-	if (soundEnabled) playSound('kick')
 	canvas.focus()
 })
 window.addEventListener('resize', resize)
