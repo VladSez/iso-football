@@ -264,6 +264,13 @@ body.charging #shoot kbd {
 .credits button {
 	font-size: 9px;
 }
+.credits {
+	flex-wrap: wrap;
+	justify-content: center;
+}
+.credits a {
+	white-space: nowrap;
+}
 .mouse {
 	width: 9px;
 	height: 13px;
@@ -409,6 +416,9 @@ dialog dd {
 	}
 	.credits button {
 		font-size: 8px;
+	}
+	.credits {
+		gap: 10px 16px;
 	}
 	#pause-overlay {
 		inset: 150px 0 240px;

@@ -17,7 +17,9 @@ export function startAudio() {
 		const music = audioContext.createBufferSource()
 		music.buffer = createMusicBuffer(audioContext)
 		music.loop = true
-		music.connect(masterGain)
+		const musicGain = audioContext.createGain()
+		musicGain.gain.value = 0.75
+		music.connect(musicGain).connect(masterGain)
 		music.start()
 	}
 	if (audioContext.state === 'suspended')
