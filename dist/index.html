@@ -30,7 +30,7 @@
 			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
 		/>
 		<meta name="twitter:card" content="summary_large_image" />
-		<link rel="stylesheet" href="style.css" />
+		<link rel="stylesheet" href="style.css?v=2" />
 	</head>
 	<body>
 		<header class="header">
@@ -110,14 +110,34 @@
 				>Built by @vladsazonau ↗</a
 			>
 			<div class="credits">
-				<button
-					id="sound"
-					class="text-button"
-					type="button"
-					aria-pressed="true"
-				>
-					Sound on</button
-				><a
+				<div id="sound-menu" class="sound-menu">
+					<fieldset id="sound-options" hidden>
+						<legend>SOUND</legend>
+						<label
+							><input type="radio" name="sound" value="all" checked /><span
+								>Music and effects</span
+							></label
+						><label
+							><input type="radio" name="sound" value="effects" /><span
+								>Effects only</span
+							></label
+						><label
+							><input type="radio" name="sound" value="off" /><span
+								>Off</span
+							></label
+						>
+					</fieldset>
+					<button
+						id="sound"
+						class="text-button"
+						type="button"
+						aria-expanded="false"
+						aria-controls="sound-options"
+					>
+						Sound on ▾
+					</button>
+				</div>
+				<a
 					href="https://github.com/VladSez/iso-football"
 					target="_blank"
 					rel="noreferrer"
@@ -186,7 +206,7 @@
 		<script>
 			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
 		</script>
-		<script src="engine.js"></script>
-		<script type="module" src="game.js"></script>
+		<script src="engine.js?v=2"></script>
+		<script type="module" src="game.js?v=2"></script>
 	</body>
 </html>

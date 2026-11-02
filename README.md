@@ -28,4 +28,10 @@ git push origin main
 git subtree push --prefix dist origin gh-pages
 ```
 
+GitHub Pages lets browsers cache files for 10 minutes, so every CSS and JS URL carries a shared `?v=` version: the `style.css`, `engine.js` and `game.js` links in `dist/index.html`, and the `physics.js` and `audio.js` imports in `dist/game.js`. Bump it in all five places whenever any of those files changes, so returning visitors fetch the new code:
+
+```sh
+grep -rn '?v=' dist/index.html dist/game.js
+```
+
 The `.nojekyll` file keeps deployment static. No Sites hosting configuration or build step is required.
