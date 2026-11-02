@@ -567,10 +567,13 @@ function playSound(kind) {
 function resize() {
 	const rect = nodes.stage.getBoundingClientRect()
 	const dpr = devicePixelRatio || 1
-	const scale = Math.max(
-		0.5,
-		Math.floor(Math.min(rect.width / W, rect.height / H, 3) * dpr) / dpr,
+	// Fit the visible diorama, excluding the canvas's white margins.
+	const available = Math.min(
+		(rect.width - 24) / 320,
+		(rect.height - 24) / 190,
+		3,
 	)
+	const scale = Math.max(0.5, Math.floor(available * dpr) / dpr)
 	canvas.style.width = `${W * scale}px`
 	canvas.style.height = `${H * scale}px`
 }
