@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#ffffff" />
+		<meta
+			name="description"
+			content="A little patch of grass. One goalkeeper. All afternoon. Move, dribble and shoot in an isometric pixel-art football game."
+		/>
+		<title>Neighborhood Football — all afternoon</title>
+		<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+		<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
+		<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Neighborhood Football" />
+		<meta
+			property="og:description"
+			content="A little patch of grass. One goalkeeper. All afternoon. An isometric pixel-art football game."
+		/>
+		<meta property="og:url" content="https://vladsez.github.io/iso-football/" />
+		<meta
+			property="og:image"
+			content="https://vladsez.github.io/iso-football/og-image.png"
+		/>
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
+		/>
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="stylesheet" href="style.css?v=4" />
+	</head>
+	<body>
+		<header class="header">
+			<a class="wordmark" href="./" aria-label="Neighborhood Football home"
+				><span class="ball-mark" aria-hidden="true">⚽</span
+				><span>NEIGHBORHOOD<br /><b>FOOTBALL</b></span></a
+			>
+			<div class="stats" aria-label="Session statistics">
+				<div><strong id="goals">00</strong><span>GOALS</span></div>
+				<i aria-hidden="true"></i>
+				<div><strong id="shots">00</strong><span>SHOTS</span></div>
+				<i aria-hidden="true"></i>
+				<div><strong id="saves">00</strong><span>SAVES</span></div>
+			</div>
+			<button id="help-open" class="text-button" type="button">
+				How to play ↗
+			</button>
+		</header>
+		<main>
+			<div id="stage">
+				<canvas
+					id="c"
+					tabindex="0"
+					aria-label="Football practice pitch. WASD or arrows to move, mouse to aim, hold Space or the mouse button and release to shoot. Press C to switch between a low shot and a chip."
+					aria-describedby="controls"
+				></canvas>
+			</div>
+			<div id="callout" hidden aria-hidden="true">
+				GOAL!<small>BACK OF THE NET.</small>
+			</div>
+			<div id="pause-overlay" hidden>
+				<span>TAKE A BREATHER.</span
+				><button id="resume" type="button">Back to the pitch ↗</button>
+			</div>
+			<section class="shot-panel" aria-label="Shooting controls">
+				<p id="feedback" role="status" aria-live="polite">
+					A little grass. All afternoon.
+				</p>
+				<div class="shot-types" role="group" aria-label="Shot type">
+					<button id="chip" type="button" aria-pressed="true">
+						Chip
+						<svg viewBox="0 0 16 12" aria-hidden="true">
+							<path d="M0 11.5H16" stroke="currentColor" opacity=".35" />
+							<path
+								d="M1.5 10.5Q7 -1.5 12.5 6.5"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.3"
+								stroke-linecap="round"
+								stroke-dasharray="1.6 1.8"
+							/>
+							<circle cx="13.6" cy="8.4" r="1.9" fill="currentColor" />
+						</svg></button
+					><button id="low" type="button" aria-pressed="false">
+						Low shot
+						<svg viewBox="0 0 16 12" aria-hidden="true">
+							<path d="M0 11.5H16" stroke="currentColor" opacity=".35" />
+							<path
+								d="M1.5 9.6H10.8"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.3"
+								stroke-linecap="round"
+								stroke-dasharray="1.6 1.8"
+							/>
+							<circle cx="13.4" cy="9.6" r="1.9" fill="currentColor" />
+						</svg></button
+					><kbd>C</kbd>
+				</div>
+				<div class="power-label">
+					<span>SHOT POWER</span><output id="power-value">0%</output>
+				</div>
+				<div
+					id="power-meter"
+					role="meter"
+					aria-label="Shot power"
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-valuenow="0"
+				>
+					<div id="power-fill"></div>
+					<i></i><i></i><i></i>
+				</div>
+				<button id="shoot" type="button">
+					<kbd>SPACE</kbd
+					><span id="shoot-label">Hold to charge · release to shoot</span>
+				</button>
+			</section>
+		</main>
+		<footer class="footer">
+			<div id="controls">
+				<span><kbd>W A S D</kbd> move</span
+				><span><span class="mouse" aria-hidden="true"></span>mouse aim &amp; shoot</span
+				><span><kbd>ESC</kbd> pause</span>
+			</div>
+			<a
+				class="creator-credit"
+				href="https://x.com/vladsazonau"
+				target="_blank"
+				rel="noreferrer"
+				>Built by @vladsazonau ↗</a
+			>
+			<div class="credits">
+				<div id="pitch-menu" class="menu">
+					<fieldset id="pitch-options" hidden>
+						<legend>PITCH</legend>
+						<label
+							><input
+								type="radio"
+								name="pitch"
+								value="neighborhood"
+								checked
+							/><span>Neighborhood</span></label
+						><label
+							><input type="radio" name="pitch" value="rooftop" /><span
+								>Rooftop cage</span
+							></label
+						><label
+							><input type="radio" name="pitch" value="beach" /><span
+								>Beach at sunset</span
+							></label
+						><label
+							><input type="radio" name="pitch" value="snow" /><span
+								>Snow day</span
+							></label
+						><label
+							><input type="radio" name="pitch" value="overpass" /><span
+								>Under the overpass</span
+							></label
+						>
+					</fieldset>
+					<button
+						id="pitch"
+						class="text-button pitch-button"
+						type="button"
+						aria-expanded="false"
+						aria-controls="pitch-options"
+					>
+						Neighborhood ▾
+					</button>
+				</div>
+				<div id="sound-menu" class="menu">
+					<fieldset id="sound-options" hidden>
+						<legend>SOUND</legend>
+						<label
+							><input type="radio" name="sound" value="all" checked /><span
+								>Music and effects</span
+							></label
+						><label
+							><input type="radio" name="sound" value="effects" /><span
+								>Effects only</span
+							></label
+						><label
+							><input type="radio" name="sound" value="off" /><span
+								>Off</span
+							></label
+						>
+					</fieldset>
+					<button
+						id="sound"
+						class="text-button"
+						type="button"
+						aria-expanded="false"
+						aria-controls="sound-options"
+					>
+						Sound on ▾
+					</button>
+				</div>
+				<a
+					href="https://github.com/VladSez/iso-football"
+					target="_blank"
+					rel="noreferrer"
+					aria-label="View iso-football source on GitHub"
+					>GitHub ↗</a
+				><a
+					href="https://vladsez.github.io/iso-hoops/"
+					target="_blank"
+					rel="noreferrer"
+					>iso-hoops ↗</a
+				><a
+					href="https://github.com/amirmushichge/pixel-plays"
+					target="_blank"
+					rel="noreferrer"
+					>Built on Pixel Plays ↗</a
+				>
+			</div>
+		</footer>
+		<dialog id="help">
+			<div class="dialog-top">
+				<span>THE PITCH IS YOURS</span
+				><button
+					id="help-close"
+					class="text-button"
+					type="button"
+					aria-label="Close instructions"
+				>
+					Close ×
+				</button>
+			</div>
+			<h1>One keeper.<br />All afternoon.</h1>
+			<p>No clock. Find a little space, pick your corner, and have a go.</p>
+			<dl>
+				<div>
+					<dt>01 / FIND YOUR SPOT</dt>
+					<dd>
+						Move with WASD or the arrow keys. The ball stays at your feet, and
+						movement follows the screen.
+					</dd>
+				</div>
+				<div>
+					<dt>02 / PICK YOUR CORNER</dt>
+					<dd>
+						Aim with the mouse. The dotted line follows the ground; aim at the
+						base of the goal. Q and E also turn your aim.
+					</dd>
+				</div>
+				<div>
+					<dt>03 / HAVE A GO</dt>
+					<dd>
+						Hold Space or the mouse button to build power, then release to kick. Press C to switch
+						between a low shot and a chip. Chips can clear the keeper, but too
+						much power can send them over the bar.
+					</dd>
+				</div>
+			</dl>
+			<p>
+				Esc cancels a charged shot or pauses. The ball returns after each
+				attempt. Stats last for this visit. Best played with a keyboard and
+				mouse.
+			</p>
+			<button id="help-play" class="play-button" type="button">
+				Back to the pitch <span>↗</span>
+			</button>
+		</dialog>
+		<script>
+			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
+		</script>
+		<script src="engine.js?v=4"></script>
+		<script type="module" src="game.js?v=4"></script>
+	</body>
+</html>
