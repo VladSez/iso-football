@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=3'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=3'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=3'
+} from './physics.js?v=4'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=4'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=4'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -125,6 +125,8 @@ function drawGoal() {
 	line3D([x, -width, height], [x, width, height], GOAL.postRadius, POST)
 }
 
+let sceneBox
+
 function bakePitch() {
 	const court = state.court
 	zb.fill(-1e9)
@@ -157,6 +159,26 @@ function bakePitch() {
 	applyShadows(groundZ)
 	bakedPix.set(pix)
 	bakedZ.set(zb)
+	sceneBox = measureScene()
+}
+
+// The drawn diorama in canvas pixels: the baked scene plus the leaves, which sway a pixel each way.
+function measureScene() {
+	const box = { left: W, top: H, right: 0, bottom: 0 }
+	const include = (ix, iy, margin) => {
+		box.left = Math.min(box.left, ix - margin)
+		box.top = Math.min(box.top, iy - margin)
+		box.right = Math.max(box.right, ix + 1 + margin)
+		box.bottom = Math.max(box.bottom, iy + 1 + margin)
+	}
+	const white = rgb(255, 255, 255)
+	for (let iy = 0; iy < H; iy++)
+		for (let ix = 0; ix < W; ix++)
+			if (bakedPix[iy * W + ix] !== white) include(ix, iy, 0)
+	for (const leaf of leaves)
+		for (let n = 0; n < leaf.pixels.length; n += 4)
+			include(leaf.pixels[n], leaf.pixels[n + 1], 1)
+	return box
 }
 
 function setFeedback(message, goal = false) {
@@ -482,22 +504,47 @@ function draw() {
 	ctx.putImageData(image, 0, 0)
 }
 
+// The pitch's playing surface, in canvas pixels. Narrow screens fit its width instead of the
+// whole diorama, cropping the grass and scenery at the sides, which makes the pitch about 1.5× bigger.
+const PITCH_SPAN = (() => {
+	const xs = [
+		[PITCH.minX, PITCH.halfWidth],
+		[PITCH.maxX, -PITCH.halfWidth],
+	].map(([x, y]) => project(x, y, 0).sx)
+	return { left: xs[0], right: xs[1] }
+})()
+const SCENE_GAP = 16
+const header = document.querySelector('.header')
+const shotPanel = document.querySelector('.shot-panel')
+
+// Fills the space between the header and the shot panel with the drawn diorama, ignoring the
+// canvas's white margins, which may run under them.
 function resize() {
-	const rect = nodes.stage.getBoundingClientRect()
-	const dpr = devicePixelRatio || 1
-	// Fit the visible diorama, excluding the canvas's white margins.
-	const available = Math.min(
-		(rect.width - 24) / 320,
-		(rect.height - 24) / 190,
-		3,
-	)
-	// Small windows need fractional scaling to use their available width.
+	const stage = nodes.stage.getBoundingClientRect()
+	const top = header.getBoundingClientRect().bottom + SCENE_GAP
+	const bottom = nodes.feedback.getBoundingClientRect().top - SCENE_GAP
+	const width = stage.width - SCENE_GAP * 2
+	const box = sceneBox
+	const heightFit = (bottom - top) / (box.bottom - box.top)
+	const widthFit = width / (box.right - box.left)
+	const pitchFit = width / (PITCH_SPAN.right - PITCH_SPAN.left)
+	const cropped = widthFit < heightFit && pitchFit > widthFit
 	const scale = Math.max(
 		0.5,
-		available < 1.5 ? available : Math.floor(available * dpr) / dpr,
+		cropped ? Math.min(pitchFit, heightFit) : Math.min(widthFit, heightFit),
 	)
+	nodes.stage.classList.toggle('cropped', cropped)
+	// Centre the diorama (or, when cropped, the pitch) in the free space.
+	const centreX = cropped
+		? (PITCH_SPAN.left + PITCH_SPAN.right) / 2
+		: (box.left + box.right) / 2
+	const left = stage.width / 2 - centreX * scale
+	const canvasTop =
+		(top + bottom) / 2 - stage.top - ((box.top + box.bottom) / 2) * scale
 	canvas.style.width = `${W * scale}px`
 	canvas.style.height = `${H * scale}px`
+	canvas.style.left = `${left}px`
+	canvas.style.top = `${canvasTop}px`
 }
 
 function openHelp() {
@@ -513,10 +560,17 @@ for (const eventName of ['pointerdown', 'keydown']) {
 }
 
 canvas.addEventListener('pointermove', aimAtPointer)
+// Hold the left button on the pitch to charge and release to kick; aim follows the pointer meanwhile.
 canvas.addEventListener('pointerdown', (event) => {
 	aimAtPointer(event)
 	canvas.focus()
+	if (event.button !== 0) return
+	event.preventDefault()
+	canvas.setPointerCapture(event.pointerId)
+	beginCharge('mouse')
 })
+canvas.addEventListener('pointerup', () => releaseShot('mouse'))
+canvas.addEventListener('pointercancel', cancelInput)
 window.addEventListener('keydown', (event) => {
 	const controlled = [
 		'Space',
@@ -686,6 +740,7 @@ const showPitch = createMenu(
 	(id) => {
 		state.court = COURTS[id]
 		bakePitch()
+		resize()
 		save(PITCH_STORAGE_KEY, id)
 	},
 )

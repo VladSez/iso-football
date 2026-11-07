@@ -9,7 +9,7 @@ Run `pnpm dev` and open http://127.0.0.1:5300. Run `pnpm test` for football phys
 - WASD / arrows: move relative to the screen; the ball stays close.
 - Mouse: aim along the ground. Point at the base of the goal.
 - Q / E: turn your aim without a mouse.
-- Hold Space, then release: charge and shoot.
+- Hold Space or the left mouse button on the pitch, then release: charge and shoot.
 - C: switch between chips (the default) and low shots.
 - Esc: cancel a charged shot, or pause / resume.
 

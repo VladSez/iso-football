@@ -30,7 +30,7 @@
 			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
 		/>
 		<meta name="twitter:card" content="summary_large_image" />
-		<link rel="stylesheet" href="style.css?v=3" />
+		<link rel="stylesheet" href="style.css?v=4" />
 	</head>
 	<body>
 		<header class="header">
@@ -54,7 +54,7 @@
 				<canvas
 					id="c"
 					tabindex="0"
-					aria-label="Football practice pitch. WASD or arrows to move, mouse to aim, hold Space and release to shoot. Press C to switch between a low shot and a chip."
+					aria-label="Football practice pitch. WASD or arrows to move, mouse to aim, hold Space or the mouse button and release to shoot. Press C to switch between a low shot and a chip."
 					aria-describedby="controls"
 				></canvas>
 			</div>
@@ -123,7 +123,7 @@
 		<footer class="footer">
 			<div id="controls">
 				<span><kbd>W A S D</kbd> move</span
-				><span><span class="mouse" aria-hidden="true"></span>mouse aim</span
+				><span><span class="mouse" aria-hidden="true"></span>mouse aim &amp; shoot</span
 				><span><kbd>ESC</kbd> pause</span>
 			</div>
 			<a
@@ -250,7 +250,7 @@
 				<div>
 					<dt>03 / HAVE A GO</dt>
 					<dd>
-						Hold Space to build power, then release to kick. Press C to switch
+						Hold Space or the mouse button to build power, then release to kick. Press C to switch
 						between a low shot and a chip. Chips can clear the keeper, but too
 						much power can send them over the bar.
 					</dd>
@@ -268,7 +268,7 @@
 		<script>
 			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
 		</script>
-		<script src="engine.js?v=3"></script>
-		<script type="module" src="game.js?v=3"></script>
+		<script src="engine.js?v=4"></script>
+		<script type="module" src="game.js?v=4"></script>
 	</body>
 </html>
