@@ -35,18 +35,22 @@
 	<body>
 		<header class="header">
 			<a class="wordmark" href="./" aria-label="Neighborhood Football home"
-				><span class="ball-mark" aria-hidden="true">⚽</span
+				><svg class="ball-mark" viewBox="0 0 30 30" aria-hidden="true">
+					<circle cx="15" cy="15" r="12.5" fill="none" stroke="currentColor" stroke-width="2.2" />
+					<path d="M15 9.5l4.6 3.4-1.8 5.4h-5.6l-1.8-5.4z" fill="currentColor" /></svg
 				><span>NEIGHBORHOOD<br /><b>FOOTBALL</b></span></a
 			>
-			<div class="stats" aria-label="Session statistics">
+			<div id="stats" class="stats" aria-label="Session statistics">
 				<div><strong id="goals">00</strong><span>GOALS</span></div>
 				<i aria-hidden="true"></i>
 				<div><strong id="shots">00</strong><span>SHOTS</span></div>
 				<i aria-hidden="true"></i>
 				<div><strong id="saves">00</strong><span>SAVES</span></div>
+				<i aria-hidden="true"></i>
+				<div><strong id="accuracy">—</strong><span>ACCURACY</span></div>
 			</div>
 			<button id="help-open" class="text-button" type="button">
-				How to play ↗
+				How to play <span aria-hidden="true">↗</span>
 			</button>
 		</header>
 		<main>
@@ -122,18 +126,13 @@
 		</main>
 		<footer class="footer">
 			<div id="controls">
-				<span><kbd>W A S D</kbd> move</span
-				><span><span class="mouse" aria-hidden="true"></span>mouse aim &amp; shoot</span
-				><span><kbd>ESC</kbd> pause</span>
+				<span><kbd>W A S D</kbd> / <kbd>↑ ← ↓ →</kbd> move</span
+				><span
+					><span class="mouse" aria-hidden="true"></span> mouse aim &amp; shoot
+					<span class="alternate">/ Q E turn</span></span
+				>
 			</div>
-			<a
-				class="creator-credit"
-				href="https://x.com/vladsazonau"
-				target="_blank"
-				rel="noreferrer"
-				>Built by @vladsazonau ↗</a
-			>
-			<div class="credits">
+			<div class="settings" role="group" aria-label="Game settings">
 				<div id="pitch-menu" class="menu">
 					<fieldset id="pitch-options" hidden>
 						<legend>PITCH</legend>
@@ -164,12 +163,16 @@
 					</fieldset>
 					<button
 						id="pitch"
-						class="text-button pitch-button"
+						class="menu-button"
 						type="button"
 						aria-expanded="false"
 						aria-controls="pitch-options"
 					>
-						Neighborhood ▾
+						<span class="menu-name">PITCH</span
+						><span class="menu-value"
+							><span id="pitch-label">Neighborhood</span>
+							<span id="pitch-arrow" aria-hidden="true">▾</span></span
+						>
 					</button>
 				</div>
 				<div id="sound-menu" class="menu">
@@ -191,32 +194,48 @@
 					</fieldset>
 					<button
 						id="sound"
-						class="text-button"
+						class="menu-button"
 						type="button"
 						aria-expanded="false"
 						aria-controls="sound-options"
 					>
-						Sound on ▾
+						<span class="menu-name">SOUND</span
+						><span class="menu-value"
+							><span id="sound-label">On</span>
+							<span id="sound-arrow" aria-hidden="true">▾</span></span
+						>
 					</button>
 				</div>
+			</div>
+			<nav class="credits" aria-label="Links">
 				<a
 					href="https://github.com/VladSez/iso-football"
 					target="_blank"
 					rel="noreferrer"
 					aria-label="View iso-football source on GitHub"
-					>GitHub ↗</a
+					>GitHub</a
+				><span aria-hidden="true">·</span
 				><a
 					href="https://vladsez.github.io/iso-hoops/"
 					target="_blank"
 					rel="noreferrer"
-					>iso-hoops ↗</a
+					aria-label="Play iso-hoops"
+					>iso-hoops</a
+				><span aria-hidden="true">·</span
 				><a
 					href="https://github.com/amirmushichge/pixel-plays"
 					target="_blank"
 					rel="noreferrer"
-					>Built on Pixel Plays ↗</a
+					aria-label="Built on Pixel Plays"
+					>Pixel Plays</a
+				><span aria-hidden="true">·</span
+				><a
+					href="https://x.com/vladsazonau"
+					target="_blank"
+					rel="noreferrer"
+					>Made by @vladsazonau</a
 				>
-			</div>
+			</nav>
 		</footer>
 		<dialog id="help">
 			<div class="dialog-top">

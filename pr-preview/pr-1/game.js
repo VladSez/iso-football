@@ -32,6 +32,8 @@ const nodes = Object.fromEntries(
 		'goals',
 		'shots',
 		'saves',
+		'accuracy',
+		'stats',
 		'feedback',
 		'power-value',
 		'power-fill',
@@ -47,9 +49,13 @@ const nodes = Object.fromEntries(
 		'sound',
 		'sound-menu',
 		'sound-options',
+		'sound-label',
+		'sound-arrow',
 		'pitch',
 		'pitch-menu',
 		'pitch-options',
+		'pitch-label',
+		'pitch-arrow',
 		'stage',
 		'callout',
 		'pause-overlay',
@@ -189,6 +195,9 @@ function setFeedback(message, goal = false) {
 function updateStats() {
 	for (const name of ['goals', 'shots', 'saves'])
 		nodes[name].textContent = String(state[name]).padStart(2, '0')
+	nodes.accuracy.textContent = state.shots
+		? `${Math.round((state.goals / state.shots) * 100)}%`
+		: '—'
 }
 
 function updateMeter() {
@@ -521,7 +530,12 @@ const shotPanel = document.querySelector('.shot-panel')
 // canvas's white margins, which may run under them.
 function resize() {
 	const stage = nodes.stage.getBoundingClientRect()
-	const top = header.getBoundingClientRect().bottom + SCENE_GAP
+	// The stats' white backing reaches below the header's own box.
+	const top =
+		Math.max(
+			header.getBoundingClientRect().bottom,
+			nodes.stats.getBoundingClientRect().bottom,
+		) + SCENE_GAP
 	const bottom = nodes.feedback.getBoundingClientRect().top - SCENE_GAP
 	const width = stage.width - SCENE_GAP * 2
 	const box = sceneBox
@@ -668,7 +682,8 @@ function createMenu(name, labelOf, onChange) {
 	const selected = () => options.querySelector(':checked').value
 	const update = () => {
 		const open = !options.hidden
-		button.textContent = `${labelOf(selected())} ${open ? '▴' : '▾'}`
+		nodes[`${name}-label`].textContent = labelOf(selected())
+		nodes[`${name}-arrow`].textContent = open ? '▴' : '▾'
 		button.setAttribute('aria-expanded', String(open))
 	}
 	const setOpen = (open) => {
@@ -677,9 +692,24 @@ function createMenu(name, labelOf, onChange) {
 		if (open) options.querySelector(':checked').focus()
 	}
 	button.addEventListener('click', () => setOpen(options.hidden))
+	// Arrow keys move through the options and keep the menu open; a click, Space or Enter picks one and closes it.
+	let browsing = false
+	options.addEventListener('keydown', (event) => {
+		browsing = event.key.startsWith('Arrow')
+		if (event.key === 'Enter') {
+			event.preventDefault()
+			setOpen(false)
+			button.focus()
+		}
+	})
 	options.addEventListener('change', () => {
 		onChange(selected())
-		update()
+		if (browsing) update()
+		else {
+			setOpen(false)
+			canvas.focus()
+		}
+		browsing = false
 	})
 	menu.addEventListener('keydown', (event) => {
 		if (event.code !== 'Escape' || options.hidden) return
@@ -715,9 +745,9 @@ function save(key, value) {
 }
 
 const SOUND_MODES = {
-	all: { label: 'Sound on', music: true, effects: true },
-	effects: { label: 'Music off', music: false, effects: true },
-	off: { label: 'Sound off', music: false, effects: false },
+	all: { label: 'On', music: true, effects: true },
+	effects: { label: 'Effects only', music: false, effects: true },
+	off: { label: 'Off', music: false, effects: false },
 }
 const SOUND_STORAGE_KEY = 'iso-football:sound'
 const showSoundMode = createMenu(
