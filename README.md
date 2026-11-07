@@ -9,7 +9,7 @@ Run `pnpm dev` and open http://127.0.0.1:5300. Run `pnpm test` for football phys
 - WASD / arrows: move relative to the screen; the ball stays close.
 - Mouse: aim along the ground. Point at the base of the goal.
 - Q / E: turn your aim without a mouse.
-- Hold Space, then release: charge and shoot.
+- Hold Space or the left mouse button on the pitch, then release: charge and shoot.
 - C: switch between chips (the default) and low shots.
 - Esc: cancel a charged shot, or pause / resume.
 
@@ -23,12 +23,11 @@ Based on [iso-hoops](https://github.com/VladSez/iso-hoops) by VladSez. The origi
 
 ## Deploy to GitHub Pages
 
-GitHub Pages serves the root of the `gh-pages` branch. After committing changes on `main`, publish the static game with:
+GitHub Pages serves the root of the `gh-pages` branch, and GitHub Actions publishes it:
 
-```sh
-git push origin main
-git subtree push --prefix dist origin gh-pages
-```
+- **Production:** every push to `main` runs `.github/workflows/deploy.yml`, which copies `dist/` to `gh-pages`.
+- **PR previews:** every pull request from this repository runs `.github/workflows/preview.yml`. It deploys the PR's `dist/` to `https://vladsez.github.io/iso-football/pr-preview/pr-<number>/` and comments the link with a QR code once the page is live. Closing or merging the PR removes the preview.
+- **Tests:** `.github/workflows/test.yml` runs `node --test` on every PR and on `main`.
 
 GitHub Pages lets browsers cache files for 10 minutes, so every CSS and JS URL carries a shared `?v=` version: the `style.css`, `engine.js` and `game.js` links in `dist/index.html`, and the `physics.js`, `audio.js` and `courts.js` imports in `dist/game.js`. Bump it in all six places whenever any of those files changes, so returning visitors fetch the new code:
 
