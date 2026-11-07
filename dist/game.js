@@ -57,15 +57,23 @@ const nodes = Object.fromEntries(
 		'pitch-label',
 		'pitch-arrow',
 		'stage',
+		'stick',
+		'stick-knob',
+		'turn',
 		'callout',
 		'pause-overlay',
 		'resume',
 	].map((id) => [id, document.getElementById(id)]),
 )
+// Phones and tablets get the on-screen stick, turn buttons and Shoot button instead of the keyboard hints.
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches
+// On touch the player faces the goal mouth until a tap or drag on the pitch aims somewhere else.
+const GOAL_MOUTH = { x: GOAL.x, y: 0 }
 const state = {
 	player: { x: 3.4, y: 1.2 },
 	yaw: Math.atan2(0.6, -12.2),
 	pointer: undefined,
+	stick: { x: 0, y: 0 },
 	keeper: {
 		x: -7.95,
 		y: 0,
@@ -255,6 +263,8 @@ function releaseShot(source) {
 
 function cancelInput() {
 	state.keys.clear()
+	state.stick.x = 0
+	state.stick.y = 0
 	if (state.phase === 'charging') state.phase = 'ready'
 	state.chargeSource = undefined
 	state.power = 0
@@ -290,9 +300,10 @@ function aimAtPointer(event) {
 }
 
 function updateAim() {
-	if (!state.pointer || state.phase === 'flight') return
-	const dx = state.pointer.x - state.player.x
-	const dy = state.pointer.y - state.player.y
+	const target = state.pointer ?? (IS_TOUCH ? GOAL_MOUTH : undefined)
+	if (!target || state.phase === 'flight') return
+	const dx = target.x - state.player.x
+	const dy = target.y - state.player.y
 	if (Math.hypot(dx, dy) > 0.3) state.yaw = Math.atan2(dy, dx)
 }
 
@@ -320,15 +331,20 @@ function update(delta) {
 	const keys = state.keys
 	let screenX =
 		Number(keys.has('KeyD') || keys.has('ArrowRight')) -
-		Number(keys.has('KeyA') || keys.has('ArrowLeft'))
+		Number(keys.has('KeyA') || keys.has('ArrowLeft')) +
+		state.stick.x
 	let screenY =
 		Number(keys.has('KeyS') || keys.has('ArrowDown')) -
-		Number(keys.has('KeyW') || keys.has('ArrowUp'))
+		Number(keys.has('KeyW') || keys.has('ArrowUp')) +
+		state.stick.y
 	const length = Math.hypot(screenX, screenY)
 	state.walking = length > 0
 	if (length) {
-		screenX /= length
-		screenY /= length
+		// Keys always walk at full speed; a partly pushed stick walks slower, for small adjustments.
+		if (length > 1) {
+			screenX /= length
+			screenY /= length
+		}
 		const speed = state.phase === 'charging' ? 2.4 : 4.1
 		state.player.x = clamp(
 			state.player.x + ((screenX + screenY) / R2) * speed * delta,
@@ -575,13 +591,14 @@ for (const eventName of ['pointerdown', 'keydown']) {
 
 canvas.addEventListener('pointermove', aimAtPointer)
 // Hold the left button on the pitch to charge and release to kick; aim follows the pointer meanwhile.
+// A finger on the pitch only aims, so a thumb resting there never fires a shot.
 canvas.addEventListener('pointerdown', (event) => {
 	aimAtPointer(event)
-	canvas.focus()
+	canvas.focus({ preventScroll: true })
 	if (event.button !== 0) return
 	event.preventDefault()
 	canvas.setPointerCapture(event.pointerId)
-	beginCharge('mouse')
+	if (event.pointerType !== 'touch') beginCharge('mouse')
 })
 canvas.addEventListener('pointerup', () => releaseShot('mouse'))
 canvas.addEventListener('pointercancel', cancelInput)
@@ -641,6 +658,75 @@ nodes.shoot.addEventListener('pointerup', () => {
 	canvas.focus()
 })
 nodes.shoot.addEventListener('pointercancel', cancelInput)
+// iOS opens its text-selection loupe on a long press unless the default is prevented.
+nodes.shoot.addEventListener('contextmenu', (event) => event.preventDefault())
+
+// The stick's offset from its centre is a screen-space direction, like WASD, scaled to 0..1.
+const STICK_DEAD_ZONE = 0.15
+let stickPointerId
+function moveStick(event) {
+	const rect = nodes.stick.getBoundingClientRect()
+	const radius = rect.width / 2
+	let dx = (event.clientX - rect.left - radius) / radius
+	let dy = (event.clientY - rect.top - radius) / radius
+	const length = Math.hypot(dx, dy)
+	if (length > 1) {
+		dx /= length
+		dy /= length
+	}
+	const isPushed = length > STICK_DEAD_ZONE
+	state.stick.x = isPushed ? dx : 0
+	state.stick.y = isPushed ? dy : 0
+	// The knob travels half the base's radius, so it stays inside the ring.
+	nodes['stick-knob'].style.transform =
+		`translate(${(dx * radius) / 2}px, ${(dy * radius) / 2}px)`
+}
+function releaseStick() {
+	stickPointerId = undefined
+	state.stick.x = 0
+	state.stick.y = 0
+	nodes['stick-knob'].style.transform = ''
+	nodes.stick.classList.remove('active')
+}
+nodes.stick.addEventListener('pointerdown', (event) => {
+	if (stickPointerId !== undefined) return
+	event.preventDefault()
+	stickPointerId = event.pointerId
+	nodes.stick.setPointerCapture(event.pointerId)
+	nodes.stick.classList.add('active')
+	moveStick(event)
+})
+nodes.stick.addEventListener('pointermove', (event) => {
+	if (event.pointerId === stickPointerId) moveStick(event)
+})
+for (const type of ['pointerup', 'pointercancel'])
+	nodes.stick.addEventListener(type, (event) => {
+		if (event.pointerId === stickPointerId) releaseStick()
+	})
+// The ↺ / ↻ buttons hold Q / E, so they turn the aim exactly like the keys do.
+for (const button of nodes.turn.children) {
+	const key = button.dataset.key
+	button.addEventListener('pointerdown', (event) => {
+		event.preventDefault()
+		button.setPointerCapture(event.pointerId)
+		button.classList.add('active')
+		state.keys.add(key)
+	})
+	for (const type of ['pointerup', 'pointercancel'])
+		button.addEventListener(type, () => {
+			button.classList.remove('active')
+			state.keys.delete(key)
+		})
+}
+// iOS Safari can start a pinch-zoom when a second finger lands outside the controls while a thumb holds the stick,
+// Shoot or a turn button. Block it only while a control is held, so the page can still be zoomed otherwise.
+document.addEventListener('gesturestart', (event) => {
+	const isHoldingControl =
+		stickPointerId !== undefined ||
+		state.chargeSource === 'pointer' ||
+		nodes.turn.querySelector('.active') !== null
+	if (isHoldingControl) event.preventDefault()
+})
 nodes.shoot.addEventListener('keydown', (event) => {
 	if (event.code === 'Space' || event.code === 'Enter') {
 		event.preventDefault()

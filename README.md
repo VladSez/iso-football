@@ -12,6 +12,7 @@ Run `pnpm dev` and open http://127.0.0.1:5300. Run `pnpm test` for football phys
 - Hold Space or the left mouse button on the pitch, then release: charge and shoot.
 - C: switch between chips (the default) and low shots.
 - Esc: cancel a charged shot, or pause / resume.
+- On a phone or tablet: drag the stick to move, hold ↺ / ↻ to turn, tap the pitch to aim, and hold Shoot to charge; release to kick.
 
 The keeper reacts after the kick, moves across the goal and dives. Shots can hit the posts or crossbar, and goals require the whole ball to cross inside the frame. The ball returns after each attempt. Session stats reset on reload.
 

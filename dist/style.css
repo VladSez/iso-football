@@ -602,3 +602,311 @@ dialog dd {
 		bottom: 16px;
 	}
 }
+/* Touch screens: an on-screen stick replaces WASD, ↺ / ↻ replace Q / E, and a round Shoot button replaces Space. */
+#stick,
+#turn,
+.touch-only {
+	display: none;
+}
+@media (pointer: coarse) {
+	/* A long press that misses a control would otherwise select nearby text, such as a menu's name. */
+	body {
+		touch-action: manipulation;
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
+	#help {
+		-webkit-user-select: text;
+		user-select: text;
+	}
+	.pointer-only,
+	#controls,
+	#shoot kbd,
+	#shoot-label,
+	.shot-types > kbd {
+		display: none;
+	}
+	.touch-only {
+		display: inline;
+	}
+	/* The gaps between the controls take no browser gestures either, so a thumb that misses the stick or Shoot
+	   can't double-tap zoom, or turn a stick-and-Shoot hold into a pinch. */
+	.shot-panel {
+		touch-action: none;
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		grid-template-areas:
+			'feedback feedback feedback'
+			'types types types'
+			'label label label'
+			'meter meter meter'
+			'stick turn shoot';
+		align-items: center;
+		width: calc(100% - 44px);
+		max-width: 420px;
+		bottom: 96px;
+	}
+	#feedback {
+		grid-area: feedback;
+		margin-bottom: 12px;
+	}
+	.shot-types {
+		grid-area: types;
+		margin-bottom: 12px;
+	}
+	.power-label {
+		grid-area: label;
+	}
+	#power-meter {
+		grid-area: meter;
+	}
+	#stick,
+	#shoot {
+		width: 96px;
+		height: 96px;
+		margin-top: 16px;
+		border: 1px solid #e0e5da;
+		border-radius: 50%;
+		background: #fff;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+	}
+	#stick {
+		grid-area: stick;
+		display: grid;
+		place-items: center;
+	}
+	#stick-knob {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: #f1f5ed;
+		border: 1px solid #d3dccb;
+		pointer-events: none;
+	}
+	#stick.active {
+		border-color: var(--green);
+	}
+	#stick.active #stick-knob {
+		background: var(--green);
+		border-color: var(--green);
+	}
+	#turn {
+		grid-area: turn;
+		display: flex;
+		justify-content: center;
+		gap: 8px;
+		margin-top: 16px;
+	}
+	#turn > span {
+		display: grid;
+		place-items: center;
+		width: 52px;
+		height: 52px;
+		border: 1px solid #e0e5da;
+		border-radius: 50%;
+		background: #fff;
+		color: #4c5244;
+		font-size: 22px;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+	#turn > span.active {
+		background: var(--green);
+		border-color: var(--green);
+		color: #fff;
+	}
+	#shoot {
+		grid-area: shoot;
+		padding: 0;
+		color: #34392e;
+		font-size: 11px;
+		letter-spacing: 2px;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+	body.charging #shoot {
+		background: var(--green);
+		border-color: var(--green);
+		color: #fff;
+	}
+	.footer {
+		justify-content: center;
+	}
+}
+@media (pointer: coarse) and (max-height: 700px) and (orientation: portrait) {
+	.stats strong {
+		font-size: 18px;
+	}
+	.stats > div {
+		gap: 4px;
+	}
+	#stick,
+	#shoot {
+		width: 84px;
+		height: 84px;
+		margin-top: 10px;
+	}
+	#turn {
+		margin-top: 10px;
+	}
+	#turn > span {
+		width: 46px;
+		height: 46px;
+	}
+	#feedback,
+	.shot-types {
+		margin-bottom: 8px;
+	}
+}
+/* Phone landscape: the pitch takes the middle, settings sit on the left, the stick and Shoot in the bottom corners. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+	body {
+		min-height: 0;
+		overflow: hidden;
+	}
+	.header {
+		top: 10px;
+		left: max(16px, env(safe-area-inset-left));
+		right: max(16px, env(safe-area-inset-right));
+		flex-wrap: nowrap;
+	}
+	.wordmark {
+		font-size: 7px;
+		gap: 8px;
+	}
+	.wordmark b {
+		font-size: 13px;
+	}
+	.ball-mark {
+		width: 24px;
+		height: 24px;
+	}
+	.stats {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: auto;
+		margin: 0;
+		gap: 14px;
+		padding: 4px 10px;
+	}
+	.stats strong {
+		font-size: 17px;
+	}
+	.stats > div {
+		gap: 4px;
+	}
+	.shot-panel {
+		left: max(16px, env(safe-area-inset-left));
+		right: max(16px, env(safe-area-inset-right));
+		bottom: 12px;
+		width: auto;
+		max-width: none;
+		transform: none;
+		grid-template-columns: auto auto minmax(0, 1fr) auto;
+		grid-template-rows: 1fr auto auto auto auto;
+		grid-template-areas:
+			'stick turn . shoot'
+			'stick turn feedback shoot'
+			'stick turn types shoot'
+			'stick turn label shoot'
+			'stick turn meter shoot';
+		column-gap: 12px;
+		pointer-events: none;
+	}
+	#feedback,
+	.shot-types,
+	.power-label,
+	#power-meter {
+		justify-self: center;
+		width: min(100%, 280px);
+		pointer-events: auto;
+	}
+	#feedback {
+		margin-bottom: 6px;
+	}
+	.shot-types {
+		margin-bottom: 6px;
+	}
+	.shot-types button {
+		padding: 5px 9px;
+	}
+	#stick,
+	#shoot {
+		width: 88px;
+		height: 88px;
+		margin: 0;
+		align-self: end;
+		pointer-events: auto;
+	}
+	/* Stacked beside the stick, so the left thumb moves and turns while the right one shoots. */
+	#turn {
+		flex-direction: column;
+		margin: 0;
+		align-self: end;
+		pointer-events: auto;
+	}
+	#turn > span {
+		width: 40px;
+		height: 40px;
+		font-size: 18px;
+	}
+	.footer {
+		display: flex;
+		top: 60px;
+		bottom: auto;
+		left: max(16px, env(safe-area-inset-left));
+		right: auto;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 10px;
+	}
+	.settings {
+		flex-direction: column;
+	}
+	.settings .menu + .menu {
+		border-left: 0;
+		border-top: 1px solid #e6e9e1;
+	}
+	.menu:first-child .menu-button,
+	.menu:last-child .menu-button {
+		border-radius: 5px;
+	}
+	.menu-button {
+		min-height: 0;
+		padding: 5px 10px;
+	}
+	.menu fieldset,
+	.menu:last-child fieldset {
+		top: 0;
+		bottom: auto;
+		left: calc(100% + 8px);
+		right: auto;
+	}
+	.credits {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+		font-size: 9px;
+	}
+	.credits > span {
+		display: none;
+	}
+}
+/* Phone portrait: the links wrap to two lines, so the controls sit higher to stay clear of the settings group. */
+@media (pointer: coarse) and (max-width: 760px) and (orientation: portrait) {
+	.shot-panel {
+		bottom: 112px;
+	}
+}
