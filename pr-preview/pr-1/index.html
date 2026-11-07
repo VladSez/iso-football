@@ -2,7 +2,10 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
 		<meta name="theme-color" content="#ffffff" />
 		<meta
 			name="description"
@@ -118,9 +121,14 @@
 					<div id="power-fill"></div>
 					<i></i><i></i><i></i>
 				</div>
+				<div id="stick" aria-hidden="true"><span id="stick-knob"></span></div>
+				<div id="turn" aria-hidden="true">
+					<span data-key="KeyQ">↺</span><span data-key="KeyE">↻</span>
+				</div>
 				<button id="shoot" type="button">
 					<kbd>SPACE</kbd
-					><span id="shoot-label">Hold to charge · release to shoot</span>
+					><span id="shoot-label">Hold to charge · release to shoot</span
+					><span class="touch-only">SHOOT</span>
 				</button>
 			</section>
 		</main>
@@ -255,30 +263,41 @@
 				<div>
 					<dt>01 / FIND YOUR SPOT</dt>
 					<dd>
-						Move with WASD or the arrow keys. The ball stays at your feet, and
-						movement follows the screen.
+						<span class="pointer-only">Move with WASD or the arrow keys.</span
+						><span class="touch-only">Drag the stick in the bottom left to move.</span>
+						The ball stays at your feet, and movement follows the screen.
 					</dd>
 				</div>
 				<div>
 					<dt>02 / PICK YOUR CORNER</dt>
 					<dd>
-						Aim with the mouse. The dotted line follows the ground; aim at the
-						base of the goal. Q and E also turn your aim.
+						<span class="pointer-only"
+							>Aim with the mouse. Q and E also turn your aim.</span
+						><span class="touch-only"
+							>You face the goal on your own, even as you move. Tap or drag on
+							the pitch to aim somewhere else, or hold ↺ / ↻ to turn a
+							little.</span
+						>
+						The dotted line follows the ground; aim at the base of the goal.
 					</dd>
 				</div>
 				<div>
 					<dt>03 / HAVE A GO</dt>
 					<dd>
-						Hold Space or the mouse button to build power, then release to kick. Press C to switch
-						between a low shot and a chip. Chips can clear the keeper, but too
+						<span class="pointer-only"
+							>Hold Space or the mouse button to build power, then release to
+							kick. Press C to switch between a low shot and a chip.</span
+						><span class="touch-only"
+							>Hold Shoot to build power, then release to kick. Tap Chip or
+							Low shot to switch.</span
+						> Chips can clear the keeper, but too
 						much power can send them over the bar.
 					</dd>
 				</div>
 			</dl>
 			<p>
-				Esc cancels a charged shot or pauses. The ball returns after each
-				attempt. Stats last for this visit. Best played with a keyboard and
-				mouse.
+				<span class="pointer-only">Esc cancels a charged shot or pauses. </span
+				>The ball returns after each attempt. Stats last for this visit.
 			</p>
 			<button id="help-play" class="play-button" type="button">
 				Back to the pitch <span>↗</span>
