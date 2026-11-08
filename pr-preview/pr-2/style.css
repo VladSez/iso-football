@@ -426,6 +426,14 @@ body.charging #shoot kbd {
 	display: inline-block;
 	min-width: 12ch;
 }
+#mode-label {
+	display: inline-block;
+	min-width: 8ch;
+}
+/* The penalty taker stays on the spot, so the stick has nothing to do. */
+body.shootout #stick {
+	visibility: hidden;
+}
 .menu-button:hover .menu-value,
 .menu-button[aria-expanded='true'] .menu-name,
 .menu-button[aria-expanded='true'] .menu-value {
@@ -598,6 +606,53 @@ dialog dd {
 	font-size: 11px;
 	line-height: 1.8;
 }
+/* The card after each shootout: the kick sheet, then your numbers in a row of small cells. */
+.kick-sheet {
+	width: 100%;
+	margin-top: 22px;
+	border-collapse: collapse;
+}
+.kick-sheet caption,
+.kick-sheet th {
+	font-size: 9px;
+	letter-spacing: 1px;
+	color: var(--green);
+	text-align: left;
+	font-weight: 400;
+}
+.kick-sheet caption {
+	padding-bottom: 8px;
+}
+.kick-sheet th {
+	width: 64px;
+}
+.kick-sheet th,
+.kick-sheet td {
+	border-top: 1px solid #edf0e8;
+	padding: 10px 0;
+}
+.kick-sheet td {
+	font-size: 16px;
+	letter-spacing: 4px;
+	white-space: nowrap;
+}
+dialog .sheet-key {
+	margin: 4px 0 0;
+	font-size: 9px;
+}
+dialog .round-numbers {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+	gap: 0 12px;
+	margin: 18px 0 0;
+}
+dialog .round-shots {
+	margin: 4px 0 0;
+}
+dialog .round-numbers dd {
+	margin-top: 4px;
+	font-size: 16px;
+}
 .play-button {
 	display: flex;
 	justify-content: space-between;
@@ -672,7 +727,13 @@ dialog dd {
 		display: none;
 	}
 	.menu-button {
-		padding: 6px 12px;
+		padding: 6px 10px;
+	}
+	/* Three menus only fit a phone's width when each is as wide as its current value. */
+	#mode-label,
+	#pitch-label,
+	#sound-label {
+		min-width: 0;
 	}
 	.credits {
 		flex-wrap: wrap;
