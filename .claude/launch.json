@@ -1,0 +1,11 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "iso-football",
+			"runtimeExecutable": "npx",
+			"runtimeArgs": ["-y", "http-server", "dist", "-p", "5391", "-a", "127.0.0.1", "-c-1"],
+			"port": 5391
+		}
+	]
+}
