@@ -7,9 +7,9 @@
 const VERSION = 1
 const FILES = [
 	'./',
-	'style.css?v=4',
+	'style.css?v=5',
 	'engine.js?v=4',
-	'game.js?v=4',
+	'game.js?v=5',
 	'physics.js?v=4',
 	'audio.js?v=4',
 	'courts.js?v=4',

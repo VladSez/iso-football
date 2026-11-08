@@ -34,15 +34,14 @@
 			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
 		/>
 		<meta name="twitter:card" content="summary_large_image" />
-		<link rel="stylesheet" href="style.css?v=4" />
+		<link rel="stylesheet" href="style.css?v=5" />
 	</head>
 	<body>
 		<header class="header">
 			<a class="wordmark" href="./" aria-label="Neighborhood Football home"
-				><svg class="ball-mark" viewBox="0 0 30 30" aria-hidden="true">
-					<circle cx="15" cy="15" r="12.5" fill="none" stroke="currentColor" stroke-width="2.2" />
-					<path d="M15 9.5l4.6 3.4-1.8 5.4h-5.6l-1.8-5.4z" fill="currentColor" /></svg
-				><span>NEIGHBORHOOD<br /><b>FOOTBALL</b></span></a
+				><img class="ball-mark" src="favicon.svg" alt="" width="32" height="32" /><span
+					>NEIGHBORHOOD<b>FOOTBALL</b></span
+				></a
 			>
 			<div id="stats" class="stats" aria-label="Session statistics">
 				<div><strong id="goals">00</strong><span>GOALS</span></div>
@@ -78,7 +77,7 @@
 					A little grass. All afternoon.
 				</p>
 				<div class="shot-types" role="group" aria-label="Shot type">
-					<button id="chip" type="button" aria-pressed="true">
+					<span class="shot-track"><button id="chip" type="button" aria-pressed="true">
 						Chip
 						<svg viewBox="0 0 16 12" aria-hidden="true">
 							<path d="M0 11.5H16" stroke="currentColor" opacity=".35" />
@@ -105,7 +104,7 @@
 								stroke-dasharray="1.6 1.8"
 							/>
 							<circle cx="13.4" cy="9.6" r="1.9" fill="currentColor" />
-						</svg></button
+						</svg></button></span
 					><kbd>C</kbd>
 				</div>
 				<div class="power-label">
@@ -320,7 +319,7 @@
 			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
 		</script>
 		<script src="engine.js?v=4"></script>
-		<script type="module" src="game.js?v=4"></script>
+		<script type="module" src="game.js?v=5"></script>
 		<script>
 			// Saves the game for offline play. Skipped when running locally, where edits
 			// would otherwise be hidden behind the saved copies.

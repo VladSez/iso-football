@@ -150,7 +150,8 @@ let sceneBox
 function bakePitch() {
 	const court = state.court
 	zb.fill(-1e9)
-	pix.fill(rgb(255, 255, 255))
+	// Transparent, so the pitch's drop shadow in style.css follows its edge instead of the canvas box.
+	pix.fill(0)
 	ground.fill(0)
 	kinds.fill(KIND_NONE)
 	shadowMask.fill(0)
@@ -191,10 +192,9 @@ function measureScene() {
 		box.right = Math.max(box.right, ix + 1 + margin)
 		box.bottom = Math.max(box.bottom, iy + 1 + margin)
 	}
-	const white = rgb(255, 255, 255)
 	for (let iy = 0; iy < H; iy++)
 		for (let ix = 0; ix < W; ix++)
-			if (bakedPix[iy * W + ix] !== white) include(ix, iy, 0)
+			if (bakedPix[iy * W + ix] !== 0) include(ix, iy, 0)
 	for (const leaf of leaves)
 		for (let n = 0; n < leaf.pixels.length; n += 4)
 			include(leaf.pixels[n], leaf.pixels[n + 1], 1)
@@ -583,7 +583,7 @@ const TOUCH_LANDSCAPE = matchMedia(
 )
 
 // Fills the space between the header and the shot panel with the drawn diorama, ignoring the
-// canvas's white margins, which may run under them.
+// canvas's empty margins, which may run under them.
 function resize() {
 	const stage = nodes.stage.getBoundingClientRect()
 	// The stats' white backing reaches below the header's own box.
