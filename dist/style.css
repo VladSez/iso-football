@@ -910,3 +910,43 @@ dialog dd {
 		bottom: 112px;
 	}
 }
+/* Touch screens zoom to the play area (game.js), so the grass and scenery that crop fade out instead of ending
+   in a straight line: across the gaps above and below the play area, at the screen's sides, and beside the
+   settings column in phone landscape. */
+@media (pointer: coarse) {
+	#stage {
+		--fit-top: 0px;
+		--fit-bottom: 100%;
+		--fit-left: 0px;
+		-webkit-mask-image:
+			linear-gradient(
+				transparent var(--fit-top),
+				#000 calc(var(--fit-top) + 16px),
+				#000 calc(var(--fit-bottom) - 16px),
+				transparent var(--fit-bottom)
+			),
+			linear-gradient(
+				90deg,
+				transparent var(--fit-left),
+				#000 calc(var(--fit-left) + 16px),
+				#000 calc(100% - 16px),
+				transparent
+			);
+		-webkit-mask-composite: source-in;
+		mask-image:
+			linear-gradient(
+				transparent var(--fit-top),
+				#000 calc(var(--fit-top) + 16px),
+				#000 calc(var(--fit-bottom) - 16px),
+				transparent var(--fit-bottom)
+			),
+			linear-gradient(
+				90deg,
+				transparent var(--fit-left),
+				#000 calc(var(--fit-left) + 16px),
+				#000 calc(100% - 16px),
+				transparent
+			);
+		mask-composite: intersect;
+	}
+}

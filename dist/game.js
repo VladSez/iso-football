@@ -69,6 +69,12 @@ const nodes = Object.fromEntries(
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches
 // On touch the player faces the goal mouth until a tap or drag on the pitch aims somewhere else.
 const GOAL_MOUTH = { x: GOAL.x, y: 0 }
+// Where the player can stand: short of the goal area, and inside the touchlines.
+const PLAYER_RANGE = {
+	minX: -6.5,
+	maxX: PITCH.maxX - 0.5,
+	halfWidth: PITCH.halfWidth - 0.5,
+}
 const state = {
 	player: { x: 3.4, y: 1.2 },
 	yaw: Math.atan2(0.6, -12.2),
@@ -348,13 +354,13 @@ function update(delta) {
 		const speed = state.phase === 'charging' ? 2.4 : 4.1
 		state.player.x = clamp(
 			state.player.x + ((screenX + screenY) / R2) * speed * delta,
-			-6.5,
-			PITCH.maxX - 0.5,
+			PLAYER_RANGE.minX,
+			PLAYER_RANGE.maxX,
 		)
 		state.player.y = clamp(
 			state.player.y + ((screenY - screenX) / R2) * speed * delta,
-			-PITCH.halfWidth + 0.5,
-			PITCH.halfWidth - 0.5,
+			-PLAYER_RANGE.halfWidth,
+			PLAYER_RANGE.halfWidth,
 		)
 		state.stride += delta * 11
 		updateAim()
@@ -540,7 +546,41 @@ const PITCH_SPAN = (() => {
 })()
 const SCENE_GAP = 16
 const header = document.querySelector('.header')
-const shotPanel = document.querySelector('.shot-panel')
+const footer = document.querySelector('.footer')
+
+// The play area in canvas pixels: everywhere the player can stand (with their height), and the goal frame.
+// Touch screens fit this instead of the whole diorama, like iso-hoops fits its court, and fade out the grass,
+// scenery and pitch corners that crop, which makes the pitch about 15% bigger upright and 50% bigger sideways.
+const PLAY_BOX = (() => {
+	const { minX, maxX, halfWidth } = PLAYER_RANGE
+	const points = [
+		...[minX, maxX].flatMap((x) =>
+			[-halfWidth, halfWidth].flatMap((y) => [
+				project(x, y, 0),
+				project(x, y, 2),
+			]),
+		),
+		...[GOAL.x, GOAL.x - GOAL.depth].flatMap((x) =>
+			[-GOAL.halfWidth, GOAL.halfWidth].flatMap((y) => [
+				project(x, y, 0),
+				project(x, y, GOAL.height),
+			]),
+		),
+	]
+	const xs = points.map((point) => point.sx)
+	const ys = points.map((point) => point.sy)
+	return {
+		left: Math.min(...xs) - 2,
+		top: Math.min(...ys) - 2,
+		right: Math.max(...xs) + 2,
+		bottom: Math.max(...ys) + 2,
+	}
+})()
+const TOUCH_GUTTER = 8
+// Phone landscape moves the settings and links into a column on the left, beside the pitch.
+const TOUCH_LANDSCAPE = matchMedia(
+	'(pointer: coarse) and (orientation: landscape) and (max-height: 500px)',
+)
 
 // Fills the space between the header and the shot panel with the drawn diorama, ignoring the
 // canvas's white margins, which may run under them.
@@ -553,6 +593,7 @@ function resize() {
 			nodes.stats.getBoundingClientRect().bottom,
 		) + SCENE_GAP
 	const bottom = nodes.feedback.getBoundingClientRect().top - SCENE_GAP
+	if (IS_TOUCH) return fitPlayArea(stage, top, bottom)
 	const width = stage.width - SCENE_GAP * 2
 	const box = sceneBox
 	const heightFit = (bottom - top) / (box.bottom - box.top)
@@ -575,6 +616,27 @@ function resize() {
 	canvas.style.height = `${H * scale}px`
 	canvas.style.left = `${left}px`
 	canvas.style.top = `${canvasTop}px`
+}
+
+function fitPlayArea(stage, top, bottom) {
+	const left = TOUCH_LANDSCAPE.matches
+		? footer.getBoundingClientRect().right + SCENE_GAP
+		: TOUCH_GUTTER
+	const right = stage.width - TOUCH_GUTTER
+	const box = PLAY_BOX
+	const scale = Math.min(
+		(right - left) / (box.right - box.left),
+		(bottom - top) / (box.bottom - box.top),
+	)
+	canvas.style.width = `${W * scale}px`
+	canvas.style.height = `${H * scale}px`
+	canvas.style.left = `${(left + right) / 2 - ((box.left + box.right) / 2) * scale}px`
+	canvas.style.top = `${(top + bottom) / 2 - stage.top - ((box.top + box.bottom) / 2) * scale}px`
+	// style.css fades the scenery out across the gaps around the play area.
+	const fade = nodes.stage.style
+	fade.setProperty('--fit-top', `${top - SCENE_GAP - stage.top}px`)
+	fade.setProperty('--fit-bottom', `${bottom + SCENE_GAP - stage.top}px`)
+	fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
 }
 
 function openHelp() {
