@@ -15,6 +15,7 @@
 		<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 		<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
 		<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+		<link rel="manifest" href="manifest.webmanifest" />
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content="Neighborhood Football" />
 		<meta
@@ -299,6 +300,18 @@
 				<span class="pointer-only">Esc cancels a charged shot or pauses. </span
 				>The ball returns after each attempt. Stats last for this visit.
 			</p>
+			<p>
+				Plays offline too. Once the pitch has loaded, it works without an
+				internet connection. To keep it close, install it:
+				<span class="pointer-only"
+					>in Chrome or Edge, click Install in the address bar or the browser
+					menu; in Safari on a Mac, choose File › Add to Dock.</span
+				><span class="touch-only"
+					>on iPhone or iPad, tap Share, then Add to Home Screen; on Android,
+					open the browser menu and tap Install app or Add to Home
+					screen.</span
+				>
+			</p>
 			<button id="help-play" class="play-button" type="button">
 				Back to the pitch <span>↗</span>
 			</button>
@@ -308,5 +321,11 @@
 		</script>
 		<script src="engine.js?v=4"></script>
 		<script type="module" src="game.js?v=4"></script>
+		<script>
+			// Saves the game for offline play. Skipped when running locally, where edits
+			// would otherwise be hidden behind the saved copies.
+			const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname)
+			if ('serviceWorker' in navigator && !isLocal) navigator.serviceWorker.register('sw.js')
+		</script>
 	</body>
 </html>

@@ -10,6 +10,7 @@ const TYPES = {
 	'.css': 'text/css',
 	'.svg': 'image/svg+xml',
 	'.png': 'image/png',
+	'.webmanifest': 'application/manifest+json',
 }
 
 createServer(async (request, response) => {

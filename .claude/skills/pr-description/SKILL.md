@@ -27,7 +27,7 @@ iso-football is a browser game: plain ES modules in `dist/`, no build step, test
 2. **Check the branch is shippable.**
    - Not on `main`. If you are, branch first: `git switch -c <short-kebab-name>`.
    - `node --test` passes.
-   - The shared `?v=` version is bumped in all six places when any of those files changed: the `style.css`, `engine.js` and `game.js` links in `dist/index.html`, and the `physics.js`, `audio.js` and `courts.js` imports in `dist/game.js`. This is the README's deploy rule, and stale query strings ship old code to players. Check with `grep -rn '?v=' dist/index.html dist/game.js`.
+   - The shared `?v=` version is bumped in all six places, and in `dist/sw.js`, when any of those files changed: the `style.css`, `engine.js` and `game.js` links in `dist/index.html`, and the `physics.js`, `audio.js` and `courts.js` imports in `dist/game.js`. This is the README's deploy rule, and stale query strings ship old code to players. The service worker's `FILES` list must carry the same strings; `pnpm test` fails when it doesn't. Check with `grep -rn '?v=' dist/index.html dist/game.js dist/sw.js`.
    - Uncommitted work is either committed with a message in the repo's style (see `git log`) or deliberately left out. Ask if unclear.
    - Agent tooling (`.claude/` skills and `launch.json`, `.github/` workflows, `CLAUDE.md`) is not part of a game change. Leave it out of the commit unless the user says it belongs in this PR. If it does, give it its own PR or its own 🛠️ section.
 3. **Capture media.** Follow [Capturing media](#capturing-media): before/after PNGs, plus one MP4 + GIF for anything that moves.
