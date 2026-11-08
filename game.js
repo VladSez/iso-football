@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=3'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=3'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=3'
+} from './physics.js?v=4'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=4'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=4'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -32,6 +32,8 @@ const nodes = Object.fromEntries(
 		'goals',
 		'shots',
 		'saves',
+		'accuracy',
+		'stats',
 		'feedback',
 		'power-value',
 		'power-fill',
@@ -47,19 +49,37 @@ const nodes = Object.fromEntries(
 		'sound',
 		'sound-menu',
 		'sound-options',
+		'sound-label',
+		'sound-arrow',
 		'pitch',
 		'pitch-menu',
 		'pitch-options',
+		'pitch-label',
+		'pitch-arrow',
 		'stage',
+		'stick',
+		'stick-knob',
+		'turn',
 		'callout',
 		'pause-overlay',
 		'resume',
 	].map((id) => [id, document.getElementById(id)]),
 )
+// Phones and tablets get the on-screen stick, turn buttons and Shoot button instead of the keyboard hints.
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches
+// On touch the player faces the goal mouth until a tap or drag on the pitch aims somewhere else.
+const GOAL_MOUTH = { x: GOAL.x, y: 0 }
+// Where the player can stand: short of the goal area, and inside the touchlines.
+const PLAYER_RANGE = {
+	minX: -6.5,
+	maxX: PITCH.maxX - 0.5,
+	halfWidth: PITCH.halfWidth - 0.5,
+}
 const state = {
 	player: { x: 3.4, y: 1.2 },
 	yaw: Math.atan2(0.6, -12.2),
 	pointer: undefined,
+	stick: { x: 0, y: 0 },
 	keeper: {
 		x: -7.95,
 		y: 0,
@@ -125,6 +145,8 @@ function drawGoal() {
 	line3D([x, -width, height], [x, width, height], GOAL.postRadius, POST)
 }
 
+let sceneBox
+
 function bakePitch() {
 	const court = state.court
 	zb.fill(-1e9)
@@ -157,6 +179,26 @@ function bakePitch() {
 	applyShadows(groundZ)
 	bakedPix.set(pix)
 	bakedZ.set(zb)
+	sceneBox = measureScene()
+}
+
+// The drawn diorama in canvas pixels: the baked scene plus the leaves, which sway a pixel each way.
+function measureScene() {
+	const box = { left: W, top: H, right: 0, bottom: 0 }
+	const include = (ix, iy, margin) => {
+		box.left = Math.min(box.left, ix - margin)
+		box.top = Math.min(box.top, iy - margin)
+		box.right = Math.max(box.right, ix + 1 + margin)
+		box.bottom = Math.max(box.bottom, iy + 1 + margin)
+	}
+	const white = rgb(255, 255, 255)
+	for (let iy = 0; iy < H; iy++)
+		for (let ix = 0; ix < W; ix++)
+			if (bakedPix[iy * W + ix] !== white) include(ix, iy, 0)
+	for (const leaf of leaves)
+		for (let n = 0; n < leaf.pixels.length; n += 4)
+			include(leaf.pixels[n], leaf.pixels[n + 1], 1)
+	return box
 }
 
 function setFeedback(message, goal = false) {
@@ -167,6 +209,9 @@ function setFeedback(message, goal = false) {
 function updateStats() {
 	for (const name of ['goals', 'shots', 'saves'])
 		nodes[name].textContent = String(state[name]).padStart(2, '0')
+	nodes.accuracy.textContent = state.shots
+		? `${Math.round((state.goals / state.shots) * 100)}%`
+		: '—'
 }
 
 function updateMeter() {
@@ -224,6 +269,8 @@ function releaseShot(source) {
 
 function cancelInput() {
 	state.keys.clear()
+	state.stick.x = 0
+	state.stick.y = 0
 	if (state.phase === 'charging') state.phase = 'ready'
 	state.chargeSource = undefined
 	state.power = 0
@@ -259,9 +306,10 @@ function aimAtPointer(event) {
 }
 
 function updateAim() {
-	if (!state.pointer || state.phase === 'flight') return
-	const dx = state.pointer.x - state.player.x
-	const dy = state.pointer.y - state.player.y
+	const target = state.pointer ?? (IS_TOUCH ? GOAL_MOUTH : undefined)
+	if (!target || state.phase === 'flight') return
+	const dx = target.x - state.player.x
+	const dy = target.y - state.player.y
 	if (Math.hypot(dx, dy) > 0.3) state.yaw = Math.atan2(dy, dx)
 }
 
@@ -289,25 +337,30 @@ function update(delta) {
 	const keys = state.keys
 	let screenX =
 		Number(keys.has('KeyD') || keys.has('ArrowRight')) -
-		Number(keys.has('KeyA') || keys.has('ArrowLeft'))
+		Number(keys.has('KeyA') || keys.has('ArrowLeft')) +
+		state.stick.x
 	let screenY =
 		Number(keys.has('KeyS') || keys.has('ArrowDown')) -
-		Number(keys.has('KeyW') || keys.has('ArrowUp'))
+		Number(keys.has('KeyW') || keys.has('ArrowUp')) +
+		state.stick.y
 	const length = Math.hypot(screenX, screenY)
 	state.walking = length > 0
 	if (length) {
-		screenX /= length
-		screenY /= length
+		// Keys always walk at full speed; a partly pushed stick walks slower, for small adjustments.
+		if (length > 1) {
+			screenX /= length
+			screenY /= length
+		}
 		const speed = state.phase === 'charging' ? 2.4 : 4.1
 		state.player.x = clamp(
 			state.player.x + ((screenX + screenY) / R2) * speed * delta,
-			-6.5,
-			PITCH.maxX - 0.5,
+			PLAYER_RANGE.minX,
+			PLAYER_RANGE.maxX,
 		)
 		state.player.y = clamp(
 			state.player.y + ((screenY - screenX) / R2) * speed * delta,
-			-PITCH.halfWidth + 0.5,
-			PITCH.halfWidth - 0.5,
+			-PLAYER_RANGE.halfWidth,
+			PLAYER_RANGE.halfWidth,
 		)
 		state.stride += delta * 11
 		updateAim()
@@ -482,22 +535,108 @@ function draw() {
 	ctx.putImageData(image, 0, 0)
 }
 
+// The pitch's playing surface, in canvas pixels. Narrow screens fit its width instead of the
+// whole diorama, cropping the grass and scenery at the sides, which makes the pitch about 1.5× bigger.
+const PITCH_SPAN = (() => {
+	const xs = [
+		[PITCH.minX, PITCH.halfWidth],
+		[PITCH.maxX, -PITCH.halfWidth],
+	].map(([x, y]) => project(x, y, 0).sx)
+	return { left: xs[0], right: xs[1] }
+})()
+const SCENE_GAP = 16
+const header = document.querySelector('.header')
+const footer = document.querySelector('.footer')
+
+// The play area in canvas pixels: everywhere the player can stand (with their height), and the goal frame.
+// Touch screens fit this instead of the whole diorama, like iso-hoops fits its court, and fade out the grass,
+// scenery and pitch corners that crop, which makes the pitch about 15% bigger upright and 50% bigger sideways.
+const PLAY_BOX = (() => {
+	const { minX, maxX, halfWidth } = PLAYER_RANGE
+	const points = [
+		...[minX, maxX].flatMap((x) =>
+			[-halfWidth, halfWidth].flatMap((y) => [
+				project(x, y, 0),
+				project(x, y, 2),
+			]),
+		),
+		...[GOAL.x, GOAL.x - GOAL.depth].flatMap((x) =>
+			[-GOAL.halfWidth, GOAL.halfWidth].flatMap((y) => [
+				project(x, y, 0),
+				project(x, y, GOAL.height),
+			]),
+		),
+	]
+	const xs = points.map((point) => point.sx)
+	const ys = points.map((point) => point.sy)
+	return {
+		left: Math.min(...xs) - 2,
+		top: Math.min(...ys) - 2,
+		right: Math.max(...xs) + 2,
+		bottom: Math.max(...ys) + 2,
+	}
+})()
+const TOUCH_GUTTER = 8
+// Phone landscape moves the settings and links into a column on the left, beside the pitch.
+const TOUCH_LANDSCAPE = matchMedia(
+	'(pointer: coarse) and (orientation: landscape) and (max-height: 500px)',
+)
+
+// Fills the space between the header and the shot panel with the drawn diorama, ignoring the
+// canvas's white margins, which may run under them.
 function resize() {
-	const rect = nodes.stage.getBoundingClientRect()
-	const dpr = devicePixelRatio || 1
-	// Fit the visible diorama, excluding the canvas's white margins.
-	const available = Math.min(
-		(rect.width - 24) / 320,
-		(rect.height - 24) / 190,
-		3,
-	)
-	// Small windows need fractional scaling to use their available width.
+	const stage = nodes.stage.getBoundingClientRect()
+	// The stats' white backing reaches below the header's own box.
+	const top =
+		Math.max(
+			header.getBoundingClientRect().bottom,
+			nodes.stats.getBoundingClientRect().bottom,
+		) + SCENE_GAP
+	const bottom = nodes.feedback.getBoundingClientRect().top - SCENE_GAP
+	if (IS_TOUCH) return fitPlayArea(stage, top, bottom)
+	const width = stage.width - SCENE_GAP * 2
+	const box = sceneBox
+	const heightFit = (bottom - top) / (box.bottom - box.top)
+	const widthFit = width / (box.right - box.left)
+	const pitchFit = width / (PITCH_SPAN.right - PITCH_SPAN.left)
+	const cropped = widthFit < heightFit && pitchFit > widthFit
 	const scale = Math.max(
 		0.5,
-		available < 1.5 ? available : Math.floor(available * dpr) / dpr,
+		cropped ? Math.min(pitchFit, heightFit) : Math.min(widthFit, heightFit),
+	)
+	nodes.stage.classList.toggle('cropped', cropped)
+	// Centre the diorama (or, when cropped, the pitch) in the free space.
+	const centreX = cropped
+		? (PITCH_SPAN.left + PITCH_SPAN.right) / 2
+		: (box.left + box.right) / 2
+	const left = stage.width / 2 - centreX * scale
+	const canvasTop =
+		(top + bottom) / 2 - stage.top - ((box.top + box.bottom) / 2) * scale
+	canvas.style.width = `${W * scale}px`
+	canvas.style.height = `${H * scale}px`
+	canvas.style.left = `${left}px`
+	canvas.style.top = `${canvasTop}px`
+}
+
+function fitPlayArea(stage, top, bottom) {
+	const left = TOUCH_LANDSCAPE.matches
+		? footer.getBoundingClientRect().right + SCENE_GAP
+		: TOUCH_GUTTER
+	const right = stage.width - TOUCH_GUTTER
+	const box = PLAY_BOX
+	const scale = Math.min(
+		(right - left) / (box.right - box.left),
+		(bottom - top) / (box.bottom - box.top),
 	)
 	canvas.style.width = `${W * scale}px`
 	canvas.style.height = `${H * scale}px`
+	canvas.style.left = `${(left + right) / 2 - ((box.left + box.right) / 2) * scale}px`
+	canvas.style.top = `${(top + bottom) / 2 - stage.top - ((box.top + box.bottom) / 2) * scale}px`
+	// style.css fades the scenery out across the gaps around the play area.
+	const fade = nodes.stage.style
+	fade.setProperty('--fit-top', `${top - SCENE_GAP - stage.top}px`)
+	fade.setProperty('--fit-bottom', `${bottom + SCENE_GAP - stage.top}px`)
+	fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
 }
 
 function openHelp() {
@@ -513,10 +652,18 @@ for (const eventName of ['pointerdown', 'keydown']) {
 }
 
 canvas.addEventListener('pointermove', aimAtPointer)
+// Hold the left button on the pitch to charge and release to kick; aim follows the pointer meanwhile.
+// A finger on the pitch only aims, so a thumb resting there never fires a shot.
 canvas.addEventListener('pointerdown', (event) => {
 	aimAtPointer(event)
-	canvas.focus()
+	canvas.focus({ preventScroll: true })
+	if (event.button !== 0) return
+	event.preventDefault()
+	canvas.setPointerCapture(event.pointerId)
+	if (event.pointerType !== 'touch') beginCharge('mouse')
 })
+canvas.addEventListener('pointerup', () => releaseShot('mouse'))
+canvas.addEventListener('pointercancel', cancelInput)
 window.addEventListener('keydown', (event) => {
 	const controlled = [
 		'Space',
@@ -573,6 +720,75 @@ nodes.shoot.addEventListener('pointerup', () => {
 	canvas.focus()
 })
 nodes.shoot.addEventListener('pointercancel', cancelInput)
+// iOS opens its text-selection loupe on a long press unless the default is prevented.
+nodes.shoot.addEventListener('contextmenu', (event) => event.preventDefault())
+
+// The stick's offset from its centre is a screen-space direction, like WASD, scaled to 0..1.
+const STICK_DEAD_ZONE = 0.15
+let stickPointerId
+function moveStick(event) {
+	const rect = nodes.stick.getBoundingClientRect()
+	const radius = rect.width / 2
+	let dx = (event.clientX - rect.left - radius) / radius
+	let dy = (event.clientY - rect.top - radius) / radius
+	const length = Math.hypot(dx, dy)
+	if (length > 1) {
+		dx /= length
+		dy /= length
+	}
+	const isPushed = length > STICK_DEAD_ZONE
+	state.stick.x = isPushed ? dx : 0
+	state.stick.y = isPushed ? dy : 0
+	// The knob travels half the base's radius, so it stays inside the ring.
+	nodes['stick-knob'].style.transform =
+		`translate(${(dx * radius) / 2}px, ${(dy * radius) / 2}px)`
+}
+function releaseStick() {
+	stickPointerId = undefined
+	state.stick.x = 0
+	state.stick.y = 0
+	nodes['stick-knob'].style.transform = ''
+	nodes.stick.classList.remove('active')
+}
+nodes.stick.addEventListener('pointerdown', (event) => {
+	if (stickPointerId !== undefined) return
+	event.preventDefault()
+	stickPointerId = event.pointerId
+	nodes.stick.setPointerCapture(event.pointerId)
+	nodes.stick.classList.add('active')
+	moveStick(event)
+})
+nodes.stick.addEventListener('pointermove', (event) => {
+	if (event.pointerId === stickPointerId) moveStick(event)
+})
+for (const type of ['pointerup', 'pointercancel'])
+	nodes.stick.addEventListener(type, (event) => {
+		if (event.pointerId === stickPointerId) releaseStick()
+	})
+// The ↺ / ↻ buttons hold Q / E, so they turn the aim exactly like the keys do.
+for (const button of nodes.turn.children) {
+	const key = button.dataset.key
+	button.addEventListener('pointerdown', (event) => {
+		event.preventDefault()
+		button.setPointerCapture(event.pointerId)
+		button.classList.add('active')
+		state.keys.add(key)
+	})
+	for (const type of ['pointerup', 'pointercancel'])
+		button.addEventListener(type, () => {
+			button.classList.remove('active')
+			state.keys.delete(key)
+		})
+}
+// iOS Safari can start a pinch-zoom when a second finger lands outside the controls while a thumb holds the stick,
+// Shoot or a turn button. Block it only while a control is held, so the page can still be zoomed otherwise.
+document.addEventListener('gesturestart', (event) => {
+	const isHoldingControl =
+		stickPointerId !== undefined ||
+		state.chargeSource === 'pointer' ||
+		nodes.turn.querySelector('.active') !== null
+	if (isHoldingControl) event.preventDefault()
+})
 nodes.shoot.addEventListener('keydown', (event) => {
 	if (event.code === 'Space' || event.code === 'Enter') {
 		event.preventDefault()
@@ -614,7 +830,8 @@ function createMenu(name, labelOf, onChange) {
 	const selected = () => options.querySelector(':checked').value
 	const update = () => {
 		const open = !options.hidden
-		button.textContent = `${labelOf(selected())} ${open ? '▴' : '▾'}`
+		nodes[`${name}-label`].textContent = labelOf(selected())
+		nodes[`${name}-arrow`].textContent = open ? '▴' : '▾'
 		button.setAttribute('aria-expanded', String(open))
 	}
 	const setOpen = (open) => {
@@ -623,9 +840,24 @@ function createMenu(name, labelOf, onChange) {
 		if (open) options.querySelector(':checked').focus()
 	}
 	button.addEventListener('click', () => setOpen(options.hidden))
+	// Arrow keys move through the options and keep the menu open; a click, Space or Enter picks one and closes it.
+	let browsing = false
+	options.addEventListener('keydown', (event) => {
+		browsing = event.key.startsWith('Arrow')
+		if (event.key === 'Enter') {
+			event.preventDefault()
+			setOpen(false)
+			button.focus()
+		}
+	})
 	options.addEventListener('change', () => {
 		onChange(selected())
-		update()
+		if (browsing) update()
+		else {
+			setOpen(false)
+			canvas.focus()
+		}
+		browsing = false
 	})
 	menu.addEventListener('keydown', (event) => {
 		if (event.code !== 'Escape' || options.hidden) return
@@ -661,9 +893,9 @@ function save(key, value) {
 }
 
 const SOUND_MODES = {
-	all: { label: 'Sound on', music: true, effects: true },
-	effects: { label: 'Music off', music: false, effects: true },
-	off: { label: 'Sound off', music: false, effects: false },
+	all: { label: 'On', music: true, effects: true },
+	effects: { label: 'Effects only', music: false, effects: true },
+	off: { label: 'Off', music: false, effects: false },
 }
 const SOUND_STORAGE_KEY = 'iso-football:sound'
 const showSoundMode = createMenu(
@@ -686,6 +918,7 @@ const showPitch = createMenu(
 	(id) => {
 		state.court = COURTS[id]
 		bakePitch()
+		resize()
 		save(PITCH_STORAGE_KEY, id)
 	},
 )
