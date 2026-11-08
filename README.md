@@ -16,6 +16,13 @@ Run `pnpm dev` and open http://127.0.0.1:5300. Run `pnpm test` for football phys
 
 The keeper reacts after the kick, moves across the goal and dives. Shots can hit the posts or crossbar, and goals require the whole ball to cross inside the frame. The ball returns after each attempt. Session stats reset on reload.
 
+Pick a mode from the Mode menu:
+
+- **Practice** (the default): walk anywhere and shoot as often as you like.
+- **Shootout**: a penalty cup run in four rounds: Round one, Quarter-final, Semi-final and Final. Each round is five kicks against that round's keeper. You shoot from the spot and can only turn. The keeper guesses a side as you strike instead of reading the ball, and its dive reaches high enough that no chip into the corner it picks is a sure goal. When you face the middle it often stays put and jumps for chips. Score three to go through. The round ends as soon as you have three, or can no longer get there.
+
+  After each round a card shows the kick-by-kick sheet and your numbers: goals, saves, misses, and how many chips and low shots went in. Go through and the next round's keeper reads you more often, dives higher and further, and moves faster. Fall short and the run starts over from round one. Get through the final and you take the cup. The scoreboard shows goals toward the three, saves, kicks taken and the round. Your current round, best run and cups won are remembered along with the mode. The keeper for each round is set in the `ROUNDS` table in `dist/shootout.js`.
+
 Pick a pitch from the menu beside Sound: Neighborhood, Rooftop cage, Beach at sunset, Snow day or Under the overpass. Every pitch plays the same; the choice is remembered.
 
 ## Play offline

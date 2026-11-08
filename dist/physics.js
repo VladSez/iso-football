@@ -62,8 +62,10 @@ export function stepBall(ball, delta, keeper) {
 			const t = (previousX - keeper.x) / (previousX - ball.x)
 			const y = previousY + (ball.y - previousY) * t
 			const z = previousZ + (ball.z - previousZ) * t
-			const reach = keeper.diving ? 0.88 : 0.43
-			const top = keeper.diving ? 1.15 : 1.7
+			const reach = keeper.diving ? (keeper.diveReach ?? 0.88) : 0.43
+			const top = keeper.diving
+				? (keeper.diveTop ?? 1.15)
+				: (keeper.standTop ?? 1.7)
 			if (
 				Math.abs(y - keeper.y) < reach + BALL_RADIUS &&
 				z < top + BALL_RADIUS

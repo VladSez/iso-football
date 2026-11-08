@@ -34,7 +34,7 @@
 			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
 		/>
 		<meta name="twitter:card" content="summary_large_image" />
-		<link rel="stylesheet" href="style.css?v=4" />
+		<link rel="stylesheet" href="style.css?v=5" />
 	</head>
 	<body>
 		<header class="header">
@@ -142,6 +142,36 @@
 				>
 			</div>
 			<div class="settings" role="group" aria-label="Game settings">
+				<div id="mode-menu" class="menu">
+					<fieldset id="mode-options" hidden>
+						<legend>MODE</legend>
+						<label
+							><input
+								type="radio"
+								name="mode"
+								value="practice"
+								checked
+							/><span>Free practice</span></label
+						><label
+							><input type="radio" name="mode" value="shootout" /><span
+								>Penalty shootout</span
+							></label
+						>
+					</fieldset>
+					<button
+						id="mode"
+						class="menu-button"
+						type="button"
+						aria-expanded="false"
+						aria-controls="mode-options"
+					>
+						<span class="menu-name">MODE</span
+						><span class="menu-value"
+							><span id="mode-label">Practice</span>
+							<span id="mode-arrow" aria-hidden="true">▾</span></span
+						>
+					</button>
+				</div>
 				<div id="pitch-menu" class="menu">
 					<fieldset id="pitch-options" hidden>
 						<legend>PITCH</legend>
@@ -301,6 +331,13 @@
 				>The ball returns after each attempt. Stats last for this visit.
 			</p>
 			<p>
+				Fancy some pressure? Pick Shootout from the Mode menu for a penalty
+				cup run. You shoot from the spot and the keeper guesses a side as you
+				strike. Each round is five kicks: score three to go through to a
+				sharper keeper, or the run starts over. Win the final to take the
+				cup.
+			</p>
+			<p>
 				Plays offline too. Once the pitch has loaded, it works without an
 				internet connection. To keep it close, install it:
 				<span class="pointer-only"
@@ -316,11 +353,36 @@
 				Back to the pitch <span>↗</span>
 			</button>
 		</dialog>
+		<dialog id="round-card" aria-labelledby="round-title">
+			<div class="dialog-top"><span id="round-stage">ROUND ONE</span></div>
+			<h1 id="round-title">Through to the quarter-final.</h1>
+			<p id="round-note"></p>
+			<table class="kick-sheet">
+				<caption>
+					KICK BY KICK
+				</caption>
+				<tr>
+					<th scope="row">KICKS</th>
+					<td id="sheet-you"></td>
+				</tr>
+			</table>
+			<p class="sheet-key">● goal · ○ saved · × missed</p>
+			<dl class="round-numbers">
+				<div><dt>GOALS</dt><dd id="round-goals"></dd></div>
+				<div><dt>SAVED</dt><dd id="round-saves"></dd></div>
+				<div><dt>MISSED</dt><dd id="round-misses"></dd></div>
+			</dl>
+			<p id="round-shots" class="round-shots"></p>
+			<button id="round-next" class="play-button" type="button">
+				<span id="round-next-label">On to the quarter-final</span>
+				<span aria-hidden="true">↗</span>
+			</button>
+		</dialog>
 		<script>
 			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
 		</script>
-		<script src="engine.js?v=4"></script>
-		<script type="module" src="game.js?v=4"></script>
+		<script src="engine.js?v=5"></script>
+		<script type="module" src="game.js?v=5"></script>
 		<script>
 			// Saves the game for offline play. Skipped when running locally, where edits
 			// would otherwise be hidden behind the saved copies.

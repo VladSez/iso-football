@@ -4,9 +4,19 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=4'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=4'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=4'
+} from './physics.js?v=5'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=5'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=5'
+import {
+	KICKS,
+	TARGET,
+	ROUNDS,
+	score,
+	roundResult,
+	advance,
+	summarize,
+	keeperGuess,
+} from './shootout.js?v=5'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -46,6 +56,17 @@ const nodes = Object.fromEntries(
 		'help-open',
 		'help-close',
 		'help-play',
+		'round-card',
+		'round-stage',
+		'round-title',
+		'round-note',
+		'sheet-you',
+		'round-goals',
+		'round-saves',
+		'round-misses',
+		'round-shots',
+		'round-next',
+		'round-next-label',
 		'sound',
 		'sound-menu',
 		'sound-options',
@@ -56,6 +77,11 @@ const nodes = Object.fromEntries(
 		'pitch-options',
 		'pitch-label',
 		'pitch-arrow',
+		'mode',
+		'mode-menu',
+		'mode-options',
+		'mode-label',
+		'mode-arrow',
 		'stage',
 		'stick',
 		'stick-knob',
@@ -75,7 +101,15 @@ const PLAYER_RANGE = {
 	maxX: PITCH.maxX - 0.5,
 	halfWidth: PITCH.halfWidth - 0.5,
 }
+// The kicker stands here in a shootout, with the ball on the spot just ahead, about 10 m out.
+const PENALTY_SPOT = { x: -1, y: 0 }
+const KEEPER_DIVE_Y = 1.7
+// A keeper who stays in the middle can jump for a chip down the middle.
+const KEEPER_STAND_TOP = 2.3
 const state = {
+	mode: 'practice',
+	shootout: undefined,
+	cup: { round: 0, best: 0, cups: 0 },
 	player: { x: 3.4, y: 1.2 },
 	yaw: Math.atan2(0.6, -12.2),
 	pointer: undefined,
@@ -206,7 +240,23 @@ function setFeedback(message, goal = false) {
 	nodes.feedback.classList.toggle('goal', goal)
 }
 
+const STAT_NAMES = {
+	practice: ['GOALS', 'SHOTS', 'SAVES', 'ACCURACY'],
+	shootout: ['GOALS', 'SAVED', 'KICKS', 'ROUND'],
+}
+
 function updateStats() {
+	nodes.stats.querySelectorAll('span').forEach((label, index) => {
+		label.textContent = STAT_NAMES[state.mode][index]
+	})
+	if (state.shootout) {
+		const kicks = state.shootout
+		nodes.goals.textContent = `${score(kicks)}/${TARGET}`
+		nodes.shots.textContent = String(summarize(kicks).saves)
+		nodes.saves.textContent = `${kicks.length}/${KICKS}`
+		nodes.accuracy.textContent = `${state.cup.round + 1}/${ROUNDS.length}`
+		return
+	}
 	for (const name of ['goals', 'shots', 'saves'])
 		nodes[name].textContent = String(state[name]).padStart(2, '0')
 	nodes.accuracy.textContent = state.shots
@@ -239,7 +289,7 @@ function selectShot(kind) {
 }
 
 function beginCharge(source) {
-	if (state.phase !== 'ready' || state.paused || nodes.help.open) return
+	if (state.phase !== 'ready' || state.paused || isDialogOpen()) return
 	state.phase = 'charging'
 	state.chargeSource = source
 	state.power = 0
@@ -252,16 +302,28 @@ function releaseShot(source) {
 	state.phase = 'flight'
 	state.chargeSource = undefined
 	state.returnAt = undefined
-	state.shots++
+	if (!state.shootout) state.shots++
 	state.kick = 0.35
 	state.keeper.reaction = 0.2
 	state.keeper.diving = false
 	const ball = state.ball
 	const timeToKeeper = ball.vx < -0.1 ? (state.keeper.x - ball.x) / ball.vx : 0
-	state.keeper.targetY = clamp(ball.y + ball.vy * timeToKeeper, -2.5, 2.5)
+	const aimY = ball.y + ball.vy * timeToKeeper
+	if (state.shootout) {
+		// A penalty is too quick to read, so the keeper guesses a side as the ball is struck.
+		state.keeper.reaction = 0
+		const { read } = ROUNDS[state.cup.round]
+		state.keeper.targetY = keeperGuess(aimY, Math.random(), read) * KEEPER_DIVE_Y
+	} else state.keeper.targetY = clamp(aimY, -2.5, 2.5)
 	state.keeper.diveDirection =
 		Math.sign(state.keeper.targetY - state.keeper.y) || 1
-	setFeedback(state.shotKind === 'chip' ? 'Up and over?' : 'Pick your corner.')
+	setFeedback(
+		state.shootout
+			? 'The keeper guesses…'
+			: state.shotKind === 'chip'
+				? 'Up and over?'
+				: 'Pick your corner.',
+	)
 	updateStats()
 	updateMeter()
 	playSound('kick')
@@ -281,19 +343,134 @@ function cancelInput() {
 function pauseGame(paused) {
 	cancelInput()
 	state.paused = paused
-	setAudioPaused(paused || nodes.help.open)
+	setAudioPaused(paused || isDialogOpen())
 	nodes['pause-overlay'].hidden = !paused
 	updateMeter()
 }
 
+function isDialogOpen() {
+	return nodes.help.open || nodes['round-card'].open
+}
+
 function returnBall() {
+	const kick = state.ball && {
+		scored: state.ball.outcome === 'goal',
+		kind: state.shotKind,
+		outcome: state.ball.outcome,
+	}
 	state.phase = 'ready'
 	state.ball = undefined
 	state.power = 0
 	state.returnAt = undefined
 	state.keeper.diving = false
 	updateMeter()
-	setFeedback('Find your spot. Have another go.')
+	if (state.shootout) recordPenalty(kick)
+	else setFeedback('Find your spot. Have another go.')
+}
+
+// Each kick goes on the sheet; the round ends as soon as you're through or can't get there.
+function recordPenalty(kick) {
+	state.shootout = [...state.shootout, kick]
+	updateStats()
+	const result = roundResult(state.shootout)
+	if (result) return finishRound(result)
+	const needed = TARGET - score(state.shootout)
+	const left = KICKS - state.shootout.length
+	setFeedback(
+		`${needed} more ${needed === 1 ? 'goal' : 'goals'} to go through, ${left} ${left === 1 ? 'kick' : 'kicks'} left.`,
+	)
+}
+
+function finishRound(result) {
+	const played = ROUNDS[state.cup.round]
+	const next = advance(state.cup.round, result)
+	state.cup = {
+		round: next.round,
+		best: Math.max(state.cup.best, result === 'through' ? state.cup.round + 1 : 0),
+		cups: state.cup.cups + Number(next.cup),
+	}
+	save(CUP_STORAGE_KEY, JSON.stringify(state.cup))
+	showRoundCard(played, result, next)
+}
+
+const SHEET_MARKS = { goal: '●', save: '○', miss: '×', post: '×' }
+
+function showRoundCard(played, result, next) {
+	const kicks = state.shootout
+	const won = result === 'through'
+	const nextName = ROUNDS[next.round].name.toLowerCase()
+	nodes['round-stage'].textContent = `${played.name.toUpperCase()} · ${score(kicks)} OF ${kicks.length} SCORED`
+	nodes['round-title'].textContent = next.cup
+		? 'Cup winners!'
+		: won
+			? `Through to the ${nextName}.`
+			: 'Knocked out.'
+	nodes['round-note'].textContent = next.cup
+		? `That's ${state.cup.cups} ${state.cup.cups === 1 ? 'cup' : 'cups'}. The next run starts from round one.`
+		: won
+			? 'The next keeper reads you better, dives further and moves faster.'
+			: 'The run starts over from round one.'
+	nodes['sheet-you'].textContent = Array.from({ length: KICKS }, (_, index) =>
+		kicks[index] ? SHEET_MARKS[kicks[index].outcome] : '·',
+	).join(' ')
+	const numbers = summarize(kicks)
+	nodes['round-goals'].textContent = `${numbers.goals} of ${kicks.length}`
+	nodes['round-saves'].textContent = String(numbers.saves)
+	nodes['round-misses'].textContent = String(numbers.misses)
+	nodes['round-shots'].textContent =
+		`Chips: ${numbers.chipGoals} of ${numbers.chips} went in. Low shots: ${numbers.lowGoals} of ${numbers.lows} went in.`
+	nodes['round-next-label'].textContent = next.cup || !won
+		? 'Start a new run'
+		: `On to the ${nextName}`
+	cancelInput()
+	nodes['round-card'].showModal()
+	setAudioPaused(true)
+	playSound(won ? 'goal' : 'save')
+}
+
+function startShootout() {
+	const round = ROUNDS[state.cup.round]
+	state.shootout = []
+	state.yaw = Math.PI
+	state.pointer = undefined
+	Object.assign(state.keeper, {
+		y: 0,
+		diving: false,
+		diveTop: round.diveTop,
+		diveReach: round.diveReach,
+		standTop: KEEPER_STAND_TOP,
+		speed: round.speed,
+	})
+	setFeedback(`${round.name}. Score ${TARGET} of ${KICKS} to go through.`)
+	updateStats()
+}
+
+function setMode(mode) {
+	cancelInput()
+	state.mode = mode
+	state.ball = undefined
+	state.phase = 'ready'
+	state.returnAt = undefined
+	document.body.classList.toggle('shootout', mode === 'shootout')
+	if (mode === 'shootout') {
+		state.player = { ...PENALTY_SPOT }
+		state.yaw = Math.PI
+		state.pointer = undefined
+		startShootout()
+	} else {
+		state.shootout = undefined
+		Object.assign(state.keeper, {
+			y: 0,
+			diving: false,
+			diveTop: undefined,
+			diveReach: undefined,
+			standTop: undefined,
+			speed: undefined,
+		})
+		setFeedback('A little grass. All afternoon.')
+		updateStats()
+	}
+	updateMeter()
 }
 
 function aimAtPointer(event) {
@@ -321,9 +498,10 @@ function updateKeeper(delta) {
 		keeper.reaction -= delta
 		if (keeper.reaction <= 0 && state.ball.vx < 0) {
 			target = keeper.targetY
-			speed = 3.7
+			speed = keeper.speed ?? 3.7
 			const remaining = (keeper.x - state.ball.x) / state.ball.vx
-			if (remaining > 0 && remaining < 0.23) keeper.diving = true
+			if (remaining > 0 && remaining < 0.23 && keeper.targetY !== 0)
+				keeper.diving = true
 		} else return
 	}
 	if (state.ball?.outcome) return
@@ -331,7 +509,7 @@ function updateKeeper(delta) {
 }
 
 function update(delta) {
-	if (state.paused || nodes.help.open) return
+	if (state.paused || isDialogOpen()) return
 	state.time += delta
 	state.kick = Math.max(0, state.kick - delta)
 	const keys = state.keys
@@ -343,7 +521,8 @@ function update(delta) {
 		Number(keys.has('KeyS') || keys.has('ArrowDown')) -
 		Number(keys.has('KeyW') || keys.has('ArrowUp')) +
 		state.stick.y
-	const length = Math.hypot(screenX, screenY)
+	// The penalty taker stays on the spot and only turns.
+	const length = state.shootout ? 0 : Math.hypot(screenX, screenY)
 	state.walking = length > 0
 	if (length) {
 		// Keys always walk at full speed; a partly pushed stick walks slower, for small adjustments.
@@ -378,7 +557,7 @@ function update(delta) {
 		for (const event of events) {
 			playSound(event)
 			if (event === 'goal') {
-				state.goals++
+				if (!state.shootout) state.goals++
 				state.scoredAt = state.time
 				nodes.callout.hidden = false
 				setFeedback(
@@ -388,7 +567,7 @@ function update(delta) {
 					true,
 				)
 			} else if (event === 'save') {
-				state.saves++
+				if (!state.shootout) state.saves++
 				setFeedback('Saved. Try the far corner.')
 			} else if (event === 'post') setFeedback('Off the woodwork!')
 			else if (event === 'miss') setFeedback('Just the next one, then.')
@@ -680,7 +859,7 @@ window.addEventListener('keydown', (event) => {
 		'KeyC',
 	]
 	if (event.ctrlKey || event.metaKey || event.altKey) return
-	if (nodes.help.open) return
+	if (isDialogOpen()) return
 	// Preserve keyboard activation for focused buttons and links.
 	if (
 		document.activeElement?.matches('button, a, input') &&
@@ -817,6 +996,14 @@ nodes.help.addEventListener('close', () => {
 	setAudioPaused(state.paused)
 	canvas.focus()
 })
+nodes['round-next'].addEventListener('click', () => nodes['round-card'].close())
+// Closing the card any way, Esc included, starts the next shootout.
+nodes['round-card'].addEventListener('close', () => {
+	cancelInput()
+	setAudioPaused(state.paused)
+	if (state.shootout) startShootout()
+	canvas.focus()
+})
 nodes.resume.addEventListener('click', () => {
 	pauseGame(false)
 	canvas.focus()
@@ -925,6 +1112,32 @@ const showPitch = createMenu(
 const pitch = readSaved(PITCH_STORAGE_KEY, COURTS, 'neighborhood')
 state.court = COURTS[pitch]
 showPitch(pitch)
+
+const MODES = {
+	practice: { label: 'Practice' },
+	shootout: { label: 'Shootout' },
+}
+const MODE_STORAGE_KEY = 'iso-football:mode'
+const CUP_STORAGE_KEY = 'iso-football:cup'
+const showMode = createMenu(
+	'mode',
+	(id) => MODES[id].label,
+	(id) => {
+		setMode(id)
+		save(MODE_STORAGE_KEY, id)
+	},
+)
+try {
+	const { round, best, cups } = JSON.parse(localStorage.getItem(CUP_STORAGE_KEY))
+	if (
+		[round, best, cups].every((value) => Number.isInteger(value) && value >= 0) &&
+		round < ROUNDS.length
+	)
+		state.cup = { round, best, cups }
+} catch {}
+const mode = readSaved(MODE_STORAGE_KEY, MODES, 'practice')
+showMode(mode)
+setMode(mode)
 window.addEventListener('resize', resize)
 
 bakePitch()
