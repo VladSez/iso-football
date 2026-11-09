@@ -1214,8 +1214,13 @@ dialog .round-numbers dd {
 		align-items: flex-start;
 		gap: 10px;
 	}
+	/* A column of a fixed width, so a saved pitch with a longer name doesn't widen it and move the pitch beside it.
+	   It also undoes the phone portrait grid, which narrow landscape phones (up to 760px wide) would otherwise get. */
 	.settings {
+		display: flex;
 		flex-direction: column;
+		width: 136px;
+		margin: 0;
 	}
 	.settings .menu + .menu {
 		border-left: 0;
@@ -1246,21 +1251,19 @@ dialog .round-numbers dd {
 		display: none;
 	}
 }
-/* Phones (touch, portrait or landscape): no scoreboard card, just one row of bare numbers with their labels beside them,
-   so the pitch gets the height. Narrow desktop windows keep the card. */
+/* Phones (touch, portrait or landscape): the scoreboard is one line, each number with its label beside it, in a low
+   card, so the pitch gets the height. Narrow desktop windows keep the stacked card. */
 @media (pointer: coarse) and (max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
 	.stats {
-		gap: 14px;
-		padding: 0;
-		border-radius: 0;
-		background: none;
-		box-shadow: none;
+		gap: 10px;
+		padding: 6px 14px;
+		border-radius: 12px;
 	}
 	/* Every cell keeps the width of its longest value and label, in practice and shootout, so the centred row doesn't
 	   slide as numbers change or when game.js switches the labels to a saved shootout. */
 	.stats strong {
 		min-width: 3ch;
-		font-size: 13px;
+		font-size: 15px;
 		text-align: right;
 	}
 	.stats > div > span {
@@ -1280,7 +1283,7 @@ dialog .round-numbers dd {
 		letter-spacing: 1.1px;
 	}
 	.stats i {
-		display: none;
+		height: 12px;
 	}
 }
 /* Like iso-hoops: on short landscape screens, such as a phone with the browser's bars showing, the links would run
@@ -1290,10 +1293,22 @@ dialog .round-numbers dd {
 		display: none;
 	}
 }
-/* Phone portrait: the links wrap to two lines, so the controls sit higher to stay clear of the settings group. */
+/* Phone portrait: the header sits close to the top and the controls close to the settings, so the pitch between them
+   gets the height. The links wrap to two lines on narrow phones, so the controls sit higher there. */
 @media (pointer: coarse) and (max-width: 760px) and (orientation: portrait) {
+	.header {
+		top: max(12px, env(safe-area-inset-top));
+	}
+	.stats {
+		margin-top: 4px;
+	}
 	.shot-panel {
-		bottom: 112px;
+		bottom: 104px;
+	}
+}
+@media (pointer: coarse) and (min-width: 386px) and (max-width: 760px) and (orientation: portrait) {
+	.shot-panel {
+		bottom: 90px;
 	}
 }
 /* Touch screens zoom to the play area (game.js), so the grass and scenery that crop fade out instead of ending

@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=11'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=11'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=11'
+} from './physics.js?v=12'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=12'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=12'
 import {
 	KICKS,
 	TARGET,
@@ -16,7 +16,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=11'
+} from './shootout.js?v=12'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -740,7 +740,8 @@ const PITCH_SPAN = (() => {
 	].map(([x, y]) => project(x, y, 0).sx)
 	return { left: xs[0], right: xs[1] }
 })()
-const SCENE_GAP = 16
+// The space kept around the scene. Phones keep less, so their smaller pitch gets the height.
+const SCENE_GAP = IS_TOUCH ? 10 : 16
 const header = document.querySelector('.header')
 const footer = document.querySelector('.footer')
 
