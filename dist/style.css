@@ -1145,6 +1145,13 @@ dialog .round-numbers dd {
 		display: none;
 	}
 }
+/* Like iso-hoops: on short landscape screens, such as a phone with the browser's bars showing, the links would run
+   into the stick, so only the settings stay. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 360px) {
+	.credits {
+		display: none;
+	}
+}
 /* Phone portrait: the links wrap to two lines, so the controls sit higher to stay clear of the settings group. */
 @media (pointer: coarse) and (max-width: 760px) and (orientation: portrait) {
 	.shot-panel {

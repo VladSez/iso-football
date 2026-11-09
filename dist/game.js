@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=7'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=7'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=7'
+} from './physics.js?v=8'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=8'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=8'
 import {
 	KICKS,
 	TARGET,
@@ -16,7 +16,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=7'
+} from './shootout.js?v=8'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
