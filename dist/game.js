@@ -5,9 +5,9 @@ import {
 	GRAVITY,
 	createShot,
 	stepBall,
-} from './physics.js?v=13'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=13'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=13'
+} from './physics.js?v=14'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=14'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=14'
 import {
 	KICKS,
 	TARGET,
@@ -17,7 +17,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=13'
+} from './shootout.js?v=14'
 import {
 	BALLS,
 	ROUNDS as TARGET_ROUNDS,
@@ -25,7 +25,7 @@ import {
 	totals,
 	roundResult as targetRoundResult,
 	nextRound,
-} from './targets.js?v=13'
+} from './targets.js?v=14'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -416,8 +416,10 @@ function updateStats() {
 	setGoals(String(state.goals).padStart(2, '0'))
 	for (const name of ['shots', 'saves'])
 		nodes[name].textContent = String(state[name]).padStart(2, '0')
-	nodes.accuracy.textContent = state.shots
-		? `${Math.round((state.goals / state.shots) * 100)}%`
+	// A ball still in the air isn't a goal or a miss yet, so accuracy waits for its outcome instead of dipping at the kick.
+	const settled = state.shots - (state.ball && !state.ball.outcome ? 1 : 0)
+	nodes.accuracy.textContent = settled
+		? `${Math.round((state.goals / settled) * 100)}%`
 		: '—'
 }
 
