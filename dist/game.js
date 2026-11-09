@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=8'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=8'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=8'
+} from './physics.js?v=9'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=9'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=9'
 import {
 	KICKS,
 	TARGET,
@@ -16,7 +16,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=8'
+} from './shootout.js?v=9'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -845,9 +845,12 @@ function fitPlayArea(stage, top, bottom) {
 		(right - left) / (box.right - box.left),
 		(bottom - top) / (box.bottom - box.top),
 	)
+	// Centred on the screen, like iso-hoops, unless the pitch is too wide for that and would run under the settings.
+	const half = ((box.right - box.left) / 2) * scale
+	const centreX = clamp(stage.width / 2, left + half, right - half)
 	canvas.style.width = `${W * scale}px`
 	canvas.style.height = `${H * scale}px`
-	canvas.style.left = `${(left + right) / 2 - ((box.left + box.right) / 2) * scale}px`
+	canvas.style.left = `${centreX - ((box.left + box.right) / 2) * scale}px`
 	canvas.style.top = `${(top + bottom) / 2 - stage.top - ((box.top + box.bottom) / 2) * scale}px`
 	// style.css fades the scenery out across the gaps around the play area.
 	const fade = nodes.stage.style
