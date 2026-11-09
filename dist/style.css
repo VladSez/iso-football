@@ -748,8 +748,23 @@ dialog .round-numbers dd {
 		width: auto;
 		margin: 8px auto 0;
 		justify-content: center;
-		gap: 14px;
-		padding: 10px 16px;
+		gap: 12px;
+		padding: 6px 14px;
+	}
+	/* Smaller numbers on phones, so the pitch below gets the height. */
+	.stats strong {
+		font-size: 18px;
+	}
+	.stats > div {
+		gap: 3px;
+		min-width: 44px;
+	}
+	.stats span {
+		font-size: 7px;
+		letter-spacing: 1.4px;
+	}
+	.stats i {
+		height: 18px;
 	}
 	.shot-panel {
 		bottom: 140px;
@@ -979,10 +994,10 @@ dialog .round-numbers dd {
 }
 @media (pointer: coarse) and (max-height: 700px) and (orientation: portrait) {
 	.stats strong {
-		font-size: 18px;
+		font-size: 16px;
 	}
 	.stats > div {
-		gap: 4px;
+		gap: 2px;
 	}
 	#stick,
 	#shoot {
@@ -1039,14 +1054,22 @@ dialog .round-numbers dd {
 		transform: translate(-50%, -50%);
 		width: auto;
 		margin: 0;
-		gap: 14px;
-		padding: 4px 10px;
+		gap: 12px;
+		padding: 3px 10px;
 	}
 	.stats strong {
-		font-size: 17px;
+		font-size: 15px;
 	}
 	.stats > div {
-		gap: 4px;
+		gap: 2px;
+		min-width: 40px;
+	}
+	.stats span {
+		font-size: 7px;
+		letter-spacing: 1.2px;
+	}
+	.stats i {
+		height: 16px;
 	}
 	.shot-panel {
 		left: max(16px, env(safe-area-inset-left));
