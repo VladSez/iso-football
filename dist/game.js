@@ -2,11 +2,12 @@ import {
 	PITCH,
 	GOAL,
 	BALL_RADIUS,
+	GRAVITY,
 	createShot,
 	stepBall,
-} from './physics.js?v=5'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=5'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=5'
+} from './physics.js?v=6'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=6'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=6'
 import {
 	KICKS,
 	TARGET,
@@ -16,7 +17,15 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=5'
+} from './shootout.js?v=6'
+import {
+	BALLS,
+	ROUNDS as TARGET_ROUNDS,
+	targetAt,
+	totals,
+	roundResult as targetRoundResult,
+	nextRound,
+} from './targets.js?v=6'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -110,6 +119,11 @@ const state = {
 	mode: 'practice',
 	shootout: undefined,
 	cup: { round: 0, best: 0, cups: 0 },
+	// The balls kicked this round, which rings still hang, and when each fell.
+	targets: undefined,
+	// The target run: the round you're on, the fewest balls you've cleared each round in (0 for not
+	// yet), and runs completed.
+	course: { round: 0, bests: TARGET_ROUNDS.map(() => 0), clears: 0 },
 	player: { x: 3.4, y: 1.2 },
 	yaw: Math.atan2(0.6, -12.2),
 	pointer: undefined,
@@ -179,6 +193,135 @@ function drawGoal() {
 	line3D([x, -width, height], [x, width, height], GOAL.postRadius, POST)
 }
 
+const RING_LOW = [222, 60, 44]
+const RING_HIGH = [240, 180, 30]
+const RING_WHITE = [248, 244, 230]
+const CORD = [120, 126, 104]
+const RING_X = GOAL.x - 0.12
+
+// A flat disc filled with strokes across the goal. `tilt` leans its top back into the net (π/2 lies
+// face up), and `front` lifts a band off the face so it draws over the one behind.
+function drawDisc(x, y, z, radius, tilt, color, front) {
+	const up = [-Math.sin(tilt), Math.cos(tilt)]
+	const face = [Math.cos(tilt), Math.sin(tilt)]
+	for (let d = -radius; d <= radius; d += 0.05) {
+		const half = Math.sqrt(Math.max(0, radius * radius - d * d))
+		const px = x + up[0] * d + face[0] * front
+		const pz = z + up[1] * d + face[1] * front
+		line3D([px, y - half, pz], [px, y + half, pz], 0.035, color)
+	}
+}
+
+function drawBullseye(target, x, y, z, tilt) {
+	const color = target.z > 1 ? RING_HIGH : RING_LOW
+	drawDisc(x, y, z, target.radius, tilt, color, 0)
+	drawDisc(x, y, z, target.radius * 0.66, tilt, RING_WHITE, 0.02)
+	drawDisc(x, y, z, target.radius * 0.33, tilt, color, 0.04)
+}
+
+// Bullseyes hang from the crossbar on cords. A hit one snaps its cord, tumbles back into the net,
+// lands on the grass, lies there a moment and is gone.
+function drawTargets() {
+	const { layout, standing, fallen } = state.targets
+	layout.forEach((target, index) => {
+		const top = [RING_X, target.y, GOAL.height]
+		if (standing[index]) {
+			line3D([RING_X, target.y, target.z + target.radius], top, 0.02, CORD)
+			drawBullseye(target, RING_X, target.y, target.z, 0)
+			return
+		}
+		const body = fallen[index]
+		if (!body) return
+		// What's left of the cord swings from the bar and settles.
+		const stub = (GOAL.height - target.z - target.radius) * 0.45 + 0.12
+		const swing = STILL
+			? 0
+			: 0.7 * Math.sin(body.age * 8) * Math.exp(-body.age * 2.2)
+		line3D(
+			top,
+			[
+				RING_X - Math.sin(swing) * stub,
+				target.y,
+				GOAL.height - Math.cos(swing) * stub,
+			],
+			0.02,
+			CORD,
+		)
+		drawBullseye(target, body.x, body.y, body.z, body.tilt)
+	})
+}
+
+// A hit target's fall: knocked back by the ball, tipping over, a small bounce, then flat on the grass.
+function knockDown(index, ball) {
+	const target = state.targets.layout[index]
+	const body = {
+		x: RING_X,
+		y: target.y,
+		z: target.z,
+		vx: ball.vx * 0.12,
+		vy: ball.vy * 0.12,
+		vz: 1.4,
+		tilt: 0,
+		spin: 3.2 + Math.random() * 1.6,
+		age: 0,
+	}
+	if (STILL)
+		Object.assign(body, {
+			z: 0.06,
+			vx: 0,
+			vy: 0,
+			vz: 0,
+			spin: 0,
+			tilt: Math.PI / 2,
+		})
+	state.targets.fallen[index] = body
+}
+
+const GROUND_GAP = 0.06
+// How long after the hit a knocked-down target is gone from the grass.
+const FALLEN_GONE = 1.9
+
+function updateFallen(delta) {
+	state.targets.fallen.forEach((body, index) => {
+		if (!body) return
+		const radius = state.targets.layout[index].radius
+		body.age += delta
+		if (body.age > FALLEN_GONE) {
+			state.targets.fallen[index] = undefined
+			return
+		}
+		body.vz -= GRAVITY * delta
+		body.x += body.vx * delta
+		body.y += body.vy * delta
+		body.z += body.vz * delta
+		body.tilt += body.spin * delta
+		// The back and side nets catch it.
+		const back =
+			GOAL.x - GOAL.depth + Math.abs(Math.sin(body.tilt)) * radius + 0.06
+		if (body.x < back) {
+			body.x = back
+			body.vx = Math.abs(body.vx) * 0.2
+		}
+		const side = GOAL.halfWidth - radius - 0.06
+		if (Math.abs(body.y) > side) {
+			body.y = Math.sign(body.y) * side
+			body.vy *= -0.3
+		}
+		const lowest = body.z - Math.abs(Math.cos(body.tilt)) * radius
+		if (lowest > GROUND_GAP) return
+		body.z += GROUND_GAP - lowest
+		if (body.vz < -1) {
+			body.vz *= -0.28
+			body.spin *= 0.6
+		} else body.vz = Math.max(0, body.vz)
+		const friction = Math.exp(-5 * delta)
+		body.vx *= friction
+		body.vy *= friction
+		// Resting on its edge, it falls flat, face up.
+		body.spin = (Math.PI / 2 - body.tilt) * 7
+	})
+}
+
 let sceneBox
 
 function bakePitch() {
@@ -243,6 +386,7 @@ function setFeedback(message, goal = false) {
 const STAT_NAMES = {
 	practice: ['GOALS', 'SHOTS', 'SAVES', 'ACCURACY'],
 	shootout: ['GOALS', 'SAVED', 'KICKS', 'ROUND'],
+	targets: ['TARGETS', 'BALLS', 'BEST', 'ROUND'],
 }
 
 function updateStats() {
@@ -255,6 +399,16 @@ function updateStats() {
 		nodes.shots.textContent = String(summarize(kicks).saves)
 		nodes.saves.textContent = `${kicks.length}/${KICKS}`
 		nodes.accuracy.textContent = `${state.cup.round + 1}/${ROUNDS.length}`
+		return
+	}
+	if (state.targets) {
+		const { balls, standing } = state.targets
+		const { round, bests } = state.course
+		const down = standing.filter((up) => !up).length
+		nodes.goals.textContent = `${down}/${standing.length}`
+		nodes.shots.textContent = `${balls.length}/${BALLS}`
+		nodes.saves.textContent = bests[round] ? String(bests[round]) : '—'
+		nodes.accuracy.textContent = `${round + 1}/${TARGET_ROUNDS.length}`
 		return
 	}
 	for (const name of ['goals', 'shots', 'saves'])
@@ -302,7 +456,7 @@ function releaseShot(source) {
 	state.phase = 'flight'
 	state.chargeSource = undefined
 	state.returnAt = undefined
-	if (!state.shootout) state.shots++
+	if (state.mode === 'practice') state.shots++
 	state.kick = 0.35
 	state.keeper.reaction = 0.2
 	state.keeper.diving = false
@@ -313,16 +467,19 @@ function releaseShot(source) {
 		// A penalty is too quick to read, so the keeper guesses a side as the ball is struck.
 		state.keeper.reaction = 0
 		const { read } = ROUNDS[state.cup.round]
-		state.keeper.targetY = keeperGuess(aimY, Math.random(), read) * KEEPER_DIVE_Y
+		state.keeper.targetY =
+			keeperGuess(aimY, Math.random(), read) * KEEPER_DIVE_Y
 	} else state.keeper.targetY = clamp(aimY, -2.5, 2.5)
 	state.keeper.diveDirection =
 		Math.sign(state.keeper.targetY - state.keeper.y) || 1
 	setFeedback(
 		state.shootout
 			? 'The keeper guesses…'
-			: state.shotKind === 'chip'
-				? 'Up and over?'
-				: 'Pick your corner.',
+			: state.targets
+				? 'Ring it…'
+				: state.shotKind === 'chip'
+					? 'Up and over?'
+					: 'Pick your corner.',
 	)
 	updateStats()
 	updateMeter()
@@ -343,7 +500,7 @@ function cancelInput() {
 function pauseGame(paused) {
 	cancelInput()
 	state.paused = paused
-	setAudioPaused(paused || isDialogOpen())
+	setAudioPaused(paused || nodes.help.open)
 	nodes['pause-overlay'].hidden = !paused
 	updateMeter()
 }
@@ -357,6 +514,7 @@ function returnBall() {
 		scored: state.ball.outcome === 'goal',
 		kind: state.shotKind,
 		outcome: state.ball.outcome,
+		hit: Boolean(state.ball.hit),
 	}
 	state.phase = 'ready'
 	state.ball = undefined
@@ -365,6 +523,7 @@ function returnBall() {
 	state.keeper.diving = false
 	updateMeter()
 	if (state.shootout) recordPenalty(kick)
+	else if (state.targets) recordBall(kick)
 	else setFeedback('Find your spot. Have another go.')
 }
 
@@ -386,11 +545,126 @@ function finishRound(result) {
 	const next = advance(state.cup.round, result)
 	state.cup = {
 		round: next.round,
-		best: Math.max(state.cup.best, result === 'through' ? state.cup.round + 1 : 0),
+		best: Math.max(
+			state.cup.best,
+			result === 'through' ? state.cup.round + 1 : 0,
+		),
 		cups: state.cup.cups + Number(next.cup),
 	}
 	save(CUP_STORAGE_KEY, JSON.stringify(state.cup))
 	showRoundCard(played, result, next)
+}
+
+function recordBall(ball) {
+	const round = state.targets
+	round.balls.push(ball)
+	updateStats()
+	const result = targetRoundResult(round.standing, round.balls.length)
+	if (result) return finishTargets(result)
+	const left = BALLS - round.balls.length
+	const up = round.standing.filter(Boolean).length
+	setFeedback(
+		`${up} ${up === 1 ? 'target' : 'targets'} to go, ${left} ${left === 1 ? 'ball' : 'balls'} left.`,
+	)
+}
+
+const plural = (count, word) => `${count} ${count === 1 ? word : `${word}s`}`
+
+function finishTargets(result) {
+	const { balls, standing } = state.targets
+	const numbers = totals(balls)
+	const played = state.course.round
+	const { name } = TARGET_ROUNDS[played]
+	const next = nextRound(played, result)
+	const cleared = result === 'cleared'
+	const previous = state.course.bests[played]
+	const best = cleared && (!previous || balls.length < previous)
+	state.course = {
+		round: next.round,
+		bests: state.course.bests.map((value, index) =>
+			index === played && best ? balls.length : value,
+		),
+		clears: state.course.clears + Number(next.complete),
+	}
+	save(TARGETS_STORAGE_KEY, JSON.stringify(state.course))
+	const down = standing.filter((up) => !up).length
+	const bestNote = best
+		? `A new best: ${plural(balls.length, 'ball')}.`
+		: previous
+			? `Your best here is ${plural(previous, 'ball')}.`
+			: ''
+	const sentences = (...parts) => parts.filter(Boolean).join(' ')
+	fillCard({
+		stage: cleared
+			? `ROUND ${played + 1} · ${name.toUpperCase()} · CLEARED IN ${balls.length}`
+			: `ROUND ${played + 1} · ${name.toUpperCase()} · ${down} OF ${standing.length} DOWN`,
+		title: next.complete
+			? 'Course complete!'
+			: cleared
+				? `On to round ${next.round + 1}.`
+				: 'Out of balls.',
+		note: next.complete
+			? sentences(
+					`That's ${plural(state.course.clears, 'run')} complete.`,
+					bestNote,
+					'The next run starts from round one.',
+				)
+			: cleared
+				? sentences(
+						bestNote,
+						`Next up: ${TARGET_ROUNDS[next.round].name}. The targets move, and get smaller and higher.`,
+					)
+				: sentences(
+						`${plural(standing.length - down, 'target')} still up.`,
+						bestNote,
+						'Have another go at this round.',
+					),
+		caption: 'BALL BY BALL',
+		row: 'BALLS',
+		marks: [
+			...balls.map((ball) =>
+				ballMark(ball.hit ? 'hit' : ball.outcome === 'goal' ? 'in' : 'miss'),
+			),
+			...Array.from({ length: BALLS - balls.length }, () => ballMark('spare')),
+		],
+		key: [
+			ballMark('hit'),
+			' hit a target · ',
+			ballMark('in'),
+			' in, no target · ',
+			ballMark('miss'),
+			' missed · ',
+			ballMark('spare'),
+			' not needed',
+		],
+		numbers: [
+			['TARGETS', `${down} of ${standing.length}`],
+			['BALLS', `${balls.length} of ${BALLS}`],
+			['MISSED', String(numbers.misses)],
+		],
+		shots: `Chips: ${numbers.chipHits} of ${numbers.chips} hit a target. Low shots: ${numbers.lowHits} of ${numbers.lows} hit a target.`,
+		next: next.complete
+			? 'Start a new run'
+			: cleared
+				? `On to round ${next.round + 1}`
+				: 'Try again',
+		sound: cleared ? 'goal' : 'save',
+	})
+}
+
+function startTargets() {
+	const { round } = state.course
+	const { name, targets } = TARGET_ROUNDS[round]
+	state.targets = {
+		layout: targets,
+		balls: [],
+		standing: targets.map(() => true),
+		fallen: targets.map(() => undefined),
+	}
+	setFeedback(
+		`Round ${round + 1}, ${name}. Knock down all ${targets.length} targets in ${BALLS} balls.`,
+	)
+	updateStats()
 }
 
 const SHEET_MARKS = { goal: '●', save: '○', miss: '×', post: '×' }
@@ -399,33 +673,94 @@ function showRoundCard(played, result, next) {
 	const kicks = state.shootout
 	const won = result === 'through'
 	const nextName = ROUNDS[next.round].name.toLowerCase()
-	nodes['round-stage'].textContent = `${played.name.toUpperCase()} · ${score(kicks)} OF ${kicks.length} SCORED`
-	nodes['round-title'].textContent = next.cup
-		? 'Cup winners!'
-		: won
-			? `Through to the ${nextName}.`
-			: 'Knocked out.'
-	nodes['round-note'].textContent = next.cup
-		? `That's ${state.cup.cups} ${state.cup.cups === 1 ? 'cup' : 'cups'}. The next run starts from round one.`
-		: won
-			? 'The next keeper reads you better, dives further and moves faster.'
-			: 'The run starts over from round one.'
-	nodes['sheet-you'].textContent = Array.from({ length: KICKS }, (_, index) =>
-		kicks[index] ? SHEET_MARKS[kicks[index].outcome] : '·',
-	).join(' ')
 	const numbers = summarize(kicks)
-	nodes['round-goals'].textContent = `${numbers.goals} of ${kicks.length}`
-	nodes['round-saves'].textContent = String(numbers.saves)
-	nodes['round-misses'].textContent = String(numbers.misses)
-	nodes['round-shots'].textContent =
-		`Chips: ${numbers.chipGoals} of ${numbers.chips} went in. Low shots: ${numbers.lowGoals} of ${numbers.lows} went in.`
-	nodes['round-next-label'].textContent = next.cup || !won
-		? 'Start a new run'
-		: `On to the ${nextName}`
+	fillCard({
+		stage: `${played.name.toUpperCase()} · ${score(kicks)} OF ${kicks.length} SCORED`,
+		title: next.cup
+			? 'Cup winners!'
+			: won
+				? `Through to the ${nextName}.`
+				: 'Knocked out.',
+		note: next.cup
+			? `That's ${state.cup.cups} ${state.cup.cups === 1 ? 'cup' : 'cups'}. The next run starts from round one.`
+			: won
+				? 'The next keeper reads you better, dives further and moves faster.'
+				: 'The run starts over from round one.',
+		caption: 'KICK BY KICK',
+		row: 'KICKS',
+		marks: Array.from({ length: KICKS }, (_, index) =>
+			kicks[index] ? SHEET_MARKS[kicks[index].outcome] : '·',
+		),
+		key: '● goal · ○ saved · × missed',
+		numbers: [
+			['GOALS', `${numbers.goals} of ${kicks.length}`],
+			['SAVED', String(numbers.saves)],
+			['MISSED', String(numbers.misses)],
+		],
+		shots: `Chips: ${numbers.chipGoals} of ${numbers.chips} went in. Low shots: ${numbers.lowGoals} of ${numbers.lows} went in.`,
+		next: next.cup || !won ? 'Start a new run' : `On to the ${nextName}`,
+		sound: won ? 'goal' : 'save',
+	})
+}
+
+// The card after a shootout round or a round of target practice.
+function fillCard({
+	stage,
+	title,
+	note,
+	caption,
+	row,
+	marks,
+	key,
+	numbers,
+	shots,
+	next,
+	sound,
+}) {
+	const card = nodes['round-card']
+	nodes['round-stage'].textContent = stage
+	nodes['round-title'].textContent = title
+	nodes['round-note'].textContent = note
+	card.querySelector('.kick-sheet caption').textContent = caption
+	card.querySelector('.kick-sheet th').textContent = row
+	// Text marks are spaced out; ball marks space themselves.
+	nodes['sheet-you'].replaceChildren(
+		...marks.flatMap((mark, index) =>
+			typeof mark === 'string' && index ? [' ', mark] : [mark],
+		),
+	)
+	card.querySelector('.sheet-key').replaceChildren(...[key].flat())
+	const cells = card.querySelectorAll('.round-numbers div')
+	numbers.forEach(([label, value], index) => {
+		cells[index].querySelector('dt').textContent = label
+		cells[index].querySelector('dd').textContent = value
+	})
+	nodes['round-shots'].textContent = shots
+	nodes['round-next-label'].textContent = next
 	cancelInput()
-	nodes['round-card'].showModal()
-	setAudioPaused(true)
-	playSound(won ? 'goal' : 'save')
+	// The music keeps playing behind the card; only pausing or the help dialog silences it.
+	card.showModal()
+	playSound(sound)
+}
+
+const BALL_MARK_LABELS = {
+	hit: 'hit a target',
+	in: 'in, no target',
+	miss: 'missed',
+	spare: 'not needed',
+}
+
+// A ball on the target card's sheet: the header's football, or × for a miss.
+function ballMark(kind) {
+	const mark = document.createElement('span')
+	mark.className = `ball-mark ${kind}`
+	mark.setAttribute('role', 'img')
+	mark.setAttribute('aria-label', BALL_MARK_LABELS[kind])
+	if (kind === 'miss') mark.textContent = '×'
+	else
+		mark.innerHTML =
+			'<svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="12.5" fill="none" stroke="currentColor" stroke-width="2.6" /><path d="M15 9.5l4.6 3.4-1.8 5.4h-5.6l-1.8-5.4z" fill="currentColor" /></svg>'
+	return mark
 }
 
 function startShootout() {
@@ -452,6 +787,7 @@ function setMode(mode) {
 	state.phase = 'ready'
 	state.returnAt = undefined
 	document.body.classList.toggle('shootout', mode === 'shootout')
+	state.targets = undefined
 	if (mode === 'shootout') {
 		state.player = { ...PENALTY_SPOT }
 		state.yaw = Math.PI
@@ -467,8 +803,11 @@ function setMode(mode) {
 			standTop: undefined,
 			speed: undefined,
 		})
-		setFeedback('A little grass. All afternoon.')
-		updateStats()
+		if (mode === 'targets') startTargets()
+		else {
+			setFeedback('A little grass. All afternoon.')
+			updateStats()
+		}
 	}
 	updateMeter()
 }
@@ -492,6 +831,8 @@ function updateAim() {
 
 function updateKeeper(delta) {
 	const keeper = state.keeper
+	// Target practice has an empty goal.
+	if (state.targets) return
 	let target = clamp(state.player.y * 0.32, -1.65, 1.65)
 	let speed = 1.6
 	if (state.ball && !state.ball.outcome) {
@@ -552,14 +893,20 @@ function update(delta) {
 	if (state.phase === 'charging')
 		state.power = Math.min(1, state.power + delta / 1.2)
 	updateKeeper(delta)
+	if (state.targets) updateFallen(delta)
 	if (state.ball) {
-		const events = stepBall(state.ball, delta, state.keeper)
+		const events = stepBall(
+			state.ball,
+			delta,
+			state.targets ? undefined : state.keeper,
+		)
 		for (const event of events) {
 			playSound(event)
-			if (event === 'goal') {
-				if (!state.shootout) state.goals++
+			if (event === 'goal' && state.targets) hitRing()
+			else if (event === 'goal') {
+				if (state.mode === 'practice') state.goals++
 				state.scoredAt = state.time
-				nodes.callout.hidden = false
+				showCallout('GOAL!', 'BACK OF THE NET.')
 				setFeedback(
 					state.shotKind === 'chip'
 						? 'Lovely chip. Goal!'
@@ -567,10 +914,13 @@ function update(delta) {
 					true,
 				)
 			} else if (event === 'save') {
-				if (!state.shootout) state.saves++
+				if (state.mode === 'practice') state.saves++
 				setFeedback('Saved. Try the far corner.')
 			} else if (event === 'post') setFeedback('Off the woodwork!')
-			else if (event === 'miss') setFeedback('Just the next one, then.')
+			else if (event === 'miss')
+				setFeedback(
+					state.targets ? 'Wide of the net.' : 'Just the next one, then.',
+				)
 			if (event !== 'bounce') {
 				state.returnAt = state.time + (event === 'goal' ? 1.8 : 1.5)
 				updateStats()
@@ -581,6 +931,31 @@ function update(delta) {
 	}
 	if (state.time - state.scoredAt > 1.7) nodes.callout.hidden = true
 	updateMeter()
+}
+
+function showCallout(title, note) {
+	nodes.callout.firstChild.nodeValue = title
+	nodes.callout.querySelector('small').textContent = note
+	nodes.callout.hidden = false
+}
+
+// The ball went in: check which ring, if any, it went through on the way.
+function hitRing() {
+	const round = state.targets
+	const index = targetAt(state.ball.entry, round.layout, round.standing)
+	if (index < 0) return setFeedback('In, but no target. Aim for one.')
+	const target = round.layout[index]
+	round.standing[index] = false
+	knockDown(index, state.ball)
+	state.ball.hit = true
+	state.scoredAt = state.time
+	const up = round.standing.filter(Boolean).length
+	showCallout('HIT!', `${target.name.toUpperCase()}.`)
+	setFeedback(
+		up ? `${target.name}! ${up} to go.` : `${target.name}! That's all of them.`,
+		true,
+	)
+	updateStats()
 }
 
 function drawFootball(ball) {
@@ -681,6 +1056,7 @@ function draw() {
 	drawTufts(windTime)
 	drawLeaves(windTime)
 	drawGoal()
+	if (state.targets) drawTargets()
 	drawAim()
 	const stride = state.walking ? Math.sin(state.stride) * 0.27 : 0.12
 	const kickPose = state.kick > 0 ? Math.sin((state.kick / 0.35) * Math.PI) : 0
@@ -698,7 +1074,7 @@ function draw() {
 		PLAYER_COLORS,
 		dynamicAdd,
 	)
-	drawKeeper()
+	if (!state.targets) drawKeeper()
 	const dribble = state.walking ? 0.07 * Math.sin(state.stride * 2) : 0
 	const ball = state.ball ?? {
 		x: state.player.x + Math.cos(state.yaw) * (0.65 + dribble),
@@ -997,11 +1373,12 @@ nodes.help.addEventListener('close', () => {
 	canvas.focus()
 })
 nodes['round-next'].addEventListener('click', () => nodes['round-card'].close())
-// Closing the card any way, Esc included, starts the next shootout.
+// Closing the card any way, Esc included, starts the next shootout or round of targets.
 nodes['round-card'].addEventListener('close', () => {
 	cancelInput()
 	setAudioPaused(state.paused)
 	if (state.shootout) startShootout()
+	if (state.targets) startTargets()
 	canvas.focus()
 })
 nodes.resume.addEventListener('click', () => {
@@ -1116,9 +1493,11 @@ showPitch(pitch)
 const MODES = {
 	practice: { label: 'Practice' },
 	shootout: { label: 'Shootout' },
+	targets: { label: 'Targets' },
 }
 const MODE_STORAGE_KEY = 'iso-football:mode'
 const CUP_STORAGE_KEY = 'iso-football:cup'
+const TARGETS_STORAGE_KEY = 'iso-football:target-run'
 const showMode = createMenu(
 	'mode',
 	(id) => MODES[id].label,
@@ -1128,12 +1507,31 @@ const showMode = createMenu(
 	},
 )
 try {
-	const { round, best, cups } = JSON.parse(localStorage.getItem(CUP_STORAGE_KEY))
+	const { round, best, cups } = JSON.parse(
+		localStorage.getItem(CUP_STORAGE_KEY),
+	)
 	if (
-		[round, best, cups].every((value) => Number.isInteger(value) && value >= 0) &&
+		[round, best, cups].every(
+			(value) => Number.isInteger(value) && value >= 0,
+		) &&
 		round < ROUNDS.length
 	)
 		state.cup = { round, best, cups }
+} catch {}
+try {
+	const { round, bests, clears } = JSON.parse(
+		localStorage.getItem(TARGETS_STORAGE_KEY),
+	)
+	const count = (value) => Number.isInteger(value) && value >= 0
+	if (
+		count(round) &&
+		round < TARGET_ROUNDS.length &&
+		count(clears) &&
+		Array.isArray(bests) &&
+		bests.length === TARGET_ROUNDS.length &&
+		bests.every(count)
+	)
+		state.course = { round, bests, clears }
 } catch {}
 const mode = readSaved(MODE_STORAGE_KEY, MODES, 'practice')
 showMode(mode)

@@ -551,6 +551,62 @@ dialog .sheet-key {
 	margin: 4px 0 0;
 	font-size: 9px;
 }
+/* The target card's sheet: a football per ball, faded when it went in without a hit, faint when it
+   wasn't needed. Up to 14 balls, so the row may wrap on a phone. */
+.kick-sheet td:has(.ball-mark) {
+	white-space: normal;
+	letter-spacing: 0;
+	line-height: 0;
+}
+.ball-mark {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin: 3px 7px 3px 0;
+	color: #34392e;
+	vertical-align: middle;
+}
+.ball-mark svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.ball-mark.miss {
+	font-size: 16px;
+	line-height: 16px;
+	text-align: center;
+}
+.ball-mark.in {
+	opacity: 0.4;
+}
+.ball-mark.spare {
+	opacity: 0.14;
+}
+.sheet-key .ball-mark {
+	width: 10px;
+	height: 10px;
+	margin: 0 1px 0 0;
+	vertical-align: -1px;
+}
+.sheet-key .ball-mark.miss {
+	font-size: 10px;
+	line-height: 10px;
+}
+/* Phones: smaller balls and a narrower label keep a 14-ball round on one line. */
+@media (max-width: 480px) {
+	.kick-sheet th {
+		width: 46px;
+	}
+	.kick-sheet td .ball-mark {
+		width: 13px;
+		height: 13px;
+		margin-right: 3px;
+	}
+	.kick-sheet td .ball-mark.miss {
+		font-size: 13px;
+		line-height: 13px;
+	}
+}
 dialog .round-numbers {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
