@@ -34,7 +34,7 @@
 			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
 		/>
 		<meta name="twitter:card" content="summary_large_image" />
-		<link rel="stylesheet" href="style.css?v=11" />
+		<link rel="stylesheet" href="style.css?v=13" />
 	</head>
 	<body>
 		<header class="header">
@@ -66,7 +66,7 @@
 				></canvas>
 			</div>
 			<div id="callout" hidden aria-hidden="true">
-				<strong>GOAL!</strong><span id="callout-detail">BACK OF THE NET</span>
+				<strong id="callout-title">GOAL!</strong><span id="callout-detail">BACK OF THE NET</span>
 			</div>
 			<div id="pause-overlay" hidden>
 				<span>TAKE A BREATHER.</span
@@ -154,6 +154,10 @@
 						><label
 							><input type="radio" name="mode" value="shootout" /><span
 								>Penalty shootout</span
+							></label
+						><label
+							><input type="radio" name="mode" value="targets" /><span
+								>Target practice</span
 							></label
 						>
 					</fieldset>
@@ -337,6 +341,13 @@
 				cup.
 			</p>
 			<p>
+				Or pick Targets for an empty net with bullseyes hanging in it. Put
+				the ball through one to knock it down. Knock them all down within
+				eight balls to go on: each of the four rounds moves the
+				targets and makes them smaller and higher. Run out first and you
+				take that round again.
+			</p>
+			<p>
 				Plays offline too. Once the pitch has loaded, it works without an
 				internet connection. To keep it close, install it:
 				<span class="pointer-only"
@@ -380,8 +391,8 @@
 		<script>
 			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
 		</script>
-		<script src="engine.js?v=11"></script>
-		<script type="module" src="game.js?v=11"></script>
+		<script src="engine.js?v=13"></script>
+		<script type="module" src="game.js?v=13"></script>
 		<script>
 			// Saves the game for offline play. Skipped when running locally, where edits
 			// would otherwise be hidden behind the saved copies.

@@ -107,6 +107,8 @@ export function stepBall(ball, delta, keeper) {
 			const t = (previousX - scoringPlane) / (previousX - ball.x)
 			const y = previousY + (ball.y - previousY) * t
 			const z = previousZ + (ball.z - previousZ) * t
+			// Where the ball crossed the line, for target practice.
+			ball.entry = { y, z }
 			ball.outcome =
 				Math.abs(y) < GOAL.halfWidth - frameRadius &&
 				z < GOAL.height - frameRadius

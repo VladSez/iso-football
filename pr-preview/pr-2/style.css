@@ -731,6 +731,62 @@ dialog .sheet-key {
 	margin: 4px 0 0;
 	font-size: 9px;
 }
+/* The target card's sheet: a football per ball, faded when it went in without a hit, faint when it
+   wasn't needed. Up to 14 balls, so the row may wrap on a phone. */
+.kick-sheet td:has(.ball-mark) {
+	white-space: normal;
+	letter-spacing: 0;
+	line-height: 0;
+}
+.ball-mark {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin: 3px 7px 3px 0;
+	color: #34392e;
+	vertical-align: middle;
+}
+.ball-mark svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.ball-mark.miss {
+	font-size: 16px;
+	line-height: 16px;
+	text-align: center;
+}
+.ball-mark.in {
+	opacity: 0.4;
+}
+.ball-mark.spare {
+	opacity: 0.14;
+}
+.sheet-key .ball-mark {
+	width: 10px;
+	height: 10px;
+	margin: 0 1px 0 0;
+	vertical-align: -1px;
+}
+.sheet-key .ball-mark.miss {
+	font-size: 10px;
+	line-height: 10px;
+}
+/* Phones: smaller balls and a narrower label keep a 14-ball round on one line. */
+@media (max-width: 480px) {
+	.kick-sheet th {
+		width: 46px;
+	}
+	.kick-sheet td .ball-mark {
+		width: 13px;
+		height: 13px;
+		margin-right: 3px;
+	}
+	.kick-sheet td .ball-mark.miss {
+		font-size: 13px;
+		line-height: 13px;
+	}
+}
 dialog .round-numbers {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
@@ -861,14 +917,17 @@ dialog .round-numbers dd {
 		min-width: 0;
 		width: 100%;
 	}
+	/* The value fills its column and the ▾ sits at the column's right edge, so a longer saved name doesn't push it. */
 	.menu-value {
 		display: flex;
-		max-width: 100%;
+		justify-content: space-between;
+		width: 100%;
 		gap: 4px;
 	}
 	#mode-label,
 	#pitch-label,
 	#sound-label {
+		flex: 1;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -1214,8 +1273,13 @@ dialog .round-numbers dd {
 		align-items: flex-start;
 		gap: 10px;
 	}
+	/* A column of a fixed width, so a saved pitch with a longer name doesn't widen it and move the pitch beside it.
+	   It also undoes the phone portrait grid, which narrow landscape phones (up to 760px wide) would otherwise get. */
 	.settings {
+		display: flex;
 		flex-direction: column;
+		width: 136px;
+		margin: 0;
 	}
 	.settings .menu + .menu {
 		border-left: 0;
@@ -1246,25 +1310,26 @@ dialog .round-numbers dd {
 		display: none;
 	}
 }
-/* Phones (touch, portrait or landscape): no scoreboard card, just one row of bare numbers with their labels beside them,
-   so the pitch gets the height. Narrow desktop windows keep the card. */
+/* Phones (touch, portrait or landscape): the scoreboard is one line, each number with its label beside it, in a low
+   card, so the pitch gets the height. Narrow desktop windows keep the stacked card. */
 @media (pointer: coarse) and (max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
 	.stats {
-		gap: 14px;
-		padding: 0;
-		border-radius: 0;
-		background: none;
-		box-shadow: none;
+		gap: 10px;
+		padding: 6px 14px;
+		border-radius: 12px;
 	}
-	/* Every cell keeps the width of its longest value and label, in practice and shootout, so the centred row doesn't
-	   slide as numbers change or when game.js switches the labels to a saved shootout. */
+	/* Every cell keeps the width of its longest value and label in every mode (TARGETS, ACCURACY), so the centred row
+	   doesn't slide as numbers change or when game.js switches the labels to a saved mode. */
 	.stats strong {
 		min-width: 3ch;
-		font-size: 13px;
+		font-size: 15px;
 		text-align: right;
 	}
 	.stats > div > span {
 		min-width: calc(5 * (1ch + 1.1px));
+	}
+	.stats > div:first-child > span {
+		min-width: calc(7 * (1ch + 1.1px));
 	}
 	.stats > div:last-child > span {
 		min-width: calc(8 * (1ch + 1.1px));
@@ -1280,7 +1345,33 @@ dialog .round-numbers dd {
 		letter-spacing: 1.1px;
 	}
 	.stats i {
-		display: none;
+		height: 12px;
+	}
+}
+/* Narrow phones (under 390px) get a tighter scoreboard card, so it fits a 320px screen without making the page wider
+   than the screen. The cells still keep a fixed width, so nothing slides. */
+@media (pointer: coarse) and (max-width: 389px) {
+	.stats {
+		gap: 6px;
+		padding: 6px 10px;
+	}
+	.stats strong {
+		font-size: 13px;
+	}
+	.stats > div {
+		gap: 3px;
+	}
+	.stats span {
+		letter-spacing: 0.6px;
+	}
+	.stats > div > span {
+		min-width: calc(5 * (1ch + 0.6px));
+	}
+	.stats > div:first-child > span {
+		min-width: calc(7 * (1ch + 0.6px));
+	}
+	.stats > div:last-child > span {
+		min-width: calc(8 * (1ch + 0.6px));
 	}
 }
 /* Like iso-hoops: on short landscape screens, such as a phone with the browser's bars showing, the links would run
@@ -1290,10 +1381,24 @@ dialog .round-numbers dd {
 		display: none;
 	}
 }
-/* Phone portrait: the links wrap to two lines, so the controls sit higher to stay clear of the settings group. */
+/* Phone portrait: the header sits close to the top and the controls close to the settings, so the pitch between them
+   gets the height. The links wrap to two lines on narrow phones, so the controls sit higher there. */
 @media (pointer: coarse) and (max-width: 760px) and (orientation: portrait) {
+	.header {
+		top: max(12px, env(safe-area-inset-top));
+	}
+	/* Centred on the screen on its own line, even when it's wider than the header's gutters allow. */
+	.stats {
+		margin: 4px 0 0 50%;
+		transform: translateX(-50%);
+	}
 	.shot-panel {
-		bottom: 112px;
+		bottom: 104px;
+	}
+}
+@media (pointer: coarse) and (min-width: 386px) and (max-width: 760px) and (orientation: portrait) {
+	.shot-panel {
+		bottom: 90px;
 	}
 }
 /* Touch screens zoom to the play area (game.js), so the grass and scenery that crop fade out instead of ending
