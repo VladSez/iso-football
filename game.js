@@ -5,9 +5,9 @@ import {
 	GRAVITY,
 	createShot,
 	stepBall,
-} from './physics.js?v=14'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=14'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=14'
+} from './physics.js?v=15'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=15'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=15'
 import {
 	KICKS,
 	TARGET,
@@ -17,7 +17,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=14'
+} from './shootout.js?v=15'
 import {
 	BALLS,
 	ROUNDS as TARGET_ROUNDS,
@@ -25,7 +25,7 @@ import {
 	totals,
 	roundResult as targetRoundResult,
 	nextRound,
-} from './targets.js?v=14'
+} from './targets.js?v=15'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -1233,7 +1233,9 @@ function fitPlayArea(stage, top, bottom) {
 	const fade = nodes.stage.style
 	fade.setProperty('--fit-top', `${top - SCENE_GAP - stage.top}px`)
 	fade.setProperty('--fit-bottom', `${bottom + SCENE_GAP - stage.top}px`)
-	fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
+	// Only phone landscape fades at the left, beside the settings column; portrait keeps style.css's off-screen default.
+	if (TOUCH_LANDSCAPE.matches) fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
+	else fade.removeProperty('--fit-left')
 	placeCallout()
 }
 
