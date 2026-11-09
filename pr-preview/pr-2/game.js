@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=6'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=6'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=6'
+} from './physics.js?v=7'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=7'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=7'
 import {
 	KICKS,
 	TARGET,
@@ -16,7 +16,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=6'
+} from './shootout.js?v=7'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -87,6 +87,7 @@ const nodes = Object.fromEntries(
 		'stick-knob',
 		'turn',
 		'callout',
+		'callout-detail',
 		'pause-overlay',
 		'resume',
 	].map((id) => [id, document.getElementById(id)]),
@@ -251,17 +252,33 @@ function updateStats() {
 	})
 	if (state.shootout) {
 		const kicks = state.shootout
-		nodes.goals.textContent = `${score(kicks)}/${TARGET}`
+		setGoals(`${score(kicks)}/${TARGET}`)
 		nodes.shots.textContent = String(summarize(kicks).saves)
 		nodes.saves.textContent = `${kicks.length}/${KICKS}`
 		nodes.accuracy.textContent = `${state.cup.round + 1}/${ROUNDS.length}`
 		return
 	}
-	for (const name of ['goals', 'shots', 'saves'])
+	setGoals(String(state.goals).padStart(2, '0'))
+	for (const name of ['shots', 'saves'])
 		nodes[name].textContent = String(state[name]).padStart(2, '0')
 	nodes.accuracy.textContent = state.shots
 		? `${Math.round((state.goals / state.shots) * 100)}%`
 		: '—'
+}
+
+// The goal count pops when it goes up, but not when a new round resets it or the mode changes.
+function setGoals(text) {
+	const { goals } = nodes
+	const isUp = goals.dataset.mode === state.mode && parseInt(text) > parseInt(goals.textContent)
+	if (isUp) replayAnimation(goals, 'scored')
+	goals.dataset.mode = state.mode
+	goals.textContent = text
+}
+
+function replayAnimation(node, className) {
+	node.classList.remove(className)
+	void node.offsetWidth
+	node.classList.add(className)
 }
 
 function updateMeter() {
@@ -559,7 +576,7 @@ function update(delta) {
 			if (event === 'goal') {
 				if (!state.shootout) state.goals++
 				state.scoredAt = state.time
-				nodes.callout.hidden = false
+				showCallout()
 				setFeedback(
 					state.shotKind === 'chip'
 						? 'Lovely chip. Goal!'
@@ -579,7 +596,7 @@ function update(delta) {
 		if (state.returnAt !== undefined && state.time >= state.returnAt)
 			returnBall()
 	}
-	if (state.time - state.scoredAt > 1.7) nodes.callout.hidden = true
+	if (state.time - state.scoredAt > 1.8) nodes.callout.hidden = true
 	updateMeter()
 }
 
@@ -763,6 +780,26 @@ const TOUCH_LANDSCAPE = matchMedia(
 
 // Fills the space between the header and the shot panel with the drawn diorama, ignoring the
 // canvas's empty margins, which may run under them.
+// The kick is not on the sheet yet, so this goal is counted by hand.
+function showCallout() {
+	const goals = state.shootout && score(state.shootout) + 1
+	nodes['callout-detail'].textContent = state.shootout
+		? `${goals} OF ${TARGET}${goals === TARGET ? ' · THROUGH' : ' TO GO THROUGH'}`
+		: state.shotKind === 'chip'
+			? 'OVER THE KEEPER'
+			: 'BACK OF THE NET'
+	nodes.callout.hidden = false
+	replayAnimation(nodes.callout, 'celebrate')
+}
+
+// Pins the GOAL! popup just above the crossbar, wherever the canvas has been moved to.
+function placeCallout() {
+	const bar = project(GOAL.x, 0, GOAL.height)
+	const scale = canvas.offsetWidth / W
+	nodes.callout.style.left = `${canvas.offsetLeft + bar.sx * scale}px`
+	nodes.callout.style.top = `${canvas.offsetTop + (bar.sy - 6) * scale}px`
+}
+
 function resize() {
 	const stage = nodes.stage.getBoundingClientRect()
 	// The stats' white backing reaches below the header's own box.
@@ -795,6 +832,7 @@ function resize() {
 	canvas.style.height = `${H * scale}px`
 	canvas.style.left = `${left}px`
 	canvas.style.top = `${canvasTop}px`
+	placeCallout()
 }
 
 function fitPlayArea(stage, top, bottom) {
@@ -816,6 +854,7 @@ function fitPlayArea(stage, top, bottom) {
 	fade.setProperty('--fit-top', `${top - SCENE_GAP - stage.top}px`)
 	fade.setProperty('--fit-bottom', `${bottom + SCENE_GAP - stage.top}px`)
 	fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
+	placeCallout()
 }
 
 function openHelp() {
@@ -885,8 +924,13 @@ window.addEventListener('keyup', (event) => {
 	if (event.code === 'Space') releaseShot('keyboard')
 })
 window.addEventListener('blur', () => pauseGame(true))
+// Switching apps on a phone can land a stray touch on the pitch, which reads as aiming at that spot and stops the
+// player facing the goal. Coming back starts from facing the goal again.
 document.addEventListener('visibilitychange', () => {
-	if (document.hidden) pauseGame(true)
+	if (!document.hidden) return
+	pauseGame(true)
+	state.pointer = undefined
+	updateAim()
 })
 nodes.shoot.addEventListener('pointerdown', (event) => {
 	if (event.button !== 0) return
@@ -899,8 +943,6 @@ nodes.shoot.addEventListener('pointerup', () => {
 	canvas.focus()
 })
 nodes.shoot.addEventListener('pointercancel', cancelInput)
-// iOS opens its text-selection loupe on a long press unless the default is prevented.
-nodes.shoot.addEventListener('contextmenu', (event) => event.preventDefault())
 
 // The stick's offset from its centre is a screen-space direction, like WASD, scaled to 0..1.
 const STICK_DEAD_ZONE = 0.15
@@ -959,6 +1001,13 @@ for (const button of nodes.turn.children) {
 			state.keys.delete(key)
 		})
 }
+// iOS starts its long-press text selection and Copy menu from touch events, which user-select: none and a
+// prevented pointerdown don't always stop, so the held controls cancel the touch itself. Pointer events still fire.
+for (const control of [nodes.shoot, nodes.stick, ...nodes.turn.children])
+	for (const type of ['touchstart', 'contextmenu', 'selectstart'])
+		control.addEventListener(type, (event) => event.preventDefault(), {
+			passive: false,
+		})
 // iOS Safari can start a pinch-zoom when a second finger lands outside the controls while a thumb holds the stick,
 // Shoot or a turn button. Block it only while a control is held, so the page can still be zoomed otherwise.
 document.addEventListener('gesturestart', (event) => {
