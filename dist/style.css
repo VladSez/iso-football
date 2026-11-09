@@ -1402,13 +1402,14 @@ dialog .round-numbers dd {
 	}
 }
 /* Touch screens zoom to the play area (game.js), so the grass and scenery that crop fade out instead of ending
-   in a straight line: across the gaps above and below the play area, at the screen's sides, and beside the
-   settings column in phone landscape. */
+   in a straight line: across the gaps above and below the play area, and beside the settings column in phone
+   landscape. The scenery runs to the screen's sides without a fade. */
 @media (pointer: coarse) {
 	#stage {
 		--fit-top: 0px;
 		--fit-bottom: 100%;
-		--fit-left: 0px;
+		/* Off-screen by the fade's width, so nothing fades at the left unless game.js moves it. */
+		--fit-left: -16px;
 		-webkit-mask-image:
 			linear-gradient(
 				transparent var(--fit-top),
@@ -1419,9 +1420,7 @@ dialog .round-numbers dd {
 			linear-gradient(
 				90deg,
 				transparent var(--fit-left),
-				#000 calc(var(--fit-left) + 16px),
-				#000 calc(100% - 16px),
-				transparent
+				#000 calc(var(--fit-left) + 16px)
 			);
 		-webkit-mask-composite: source-in;
 		mask-image:
@@ -1434,9 +1433,7 @@ dialog .round-numbers dd {
 			linear-gradient(
 				90deg,
 				transparent var(--fit-left),
-				#000 calc(var(--fit-left) + 16px),
-				#000 calc(100% - 16px),
-				transparent
+				#000 calc(var(--fit-left) + 16px)
 			);
 		mask-composite: intersect;
 	}

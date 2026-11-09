@@ -1233,7 +1233,9 @@ function fitPlayArea(stage, top, bottom) {
 	const fade = nodes.stage.style
 	fade.setProperty('--fit-top', `${top - SCENE_GAP - stage.top}px`)
 	fade.setProperty('--fit-bottom', `${bottom + SCENE_GAP - stage.top}px`)
-	fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
+	// Only phone landscape fades at the left, beside the settings column; portrait keeps style.css's off-screen default.
+	if (TOUCH_LANDSCAPE.matches) fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
+	else fade.removeProperty('--fit-left')
 	placeCallout()
 }
 
