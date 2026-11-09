@@ -4,9 +4,9 @@ import {
 	BALL_RADIUS,
 	createShot,
 	stepBall,
-} from './physics.js?v=10'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=10'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=10'
+} from './physics.js?v=11'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=11'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=11'
 import {
 	KICKS,
 	TARGET,
@@ -16,7 +16,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=10'
+} from './shootout.js?v=11'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -1210,3 +1210,14 @@ function frame(now) {
 	requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
+// The saved mode, pitch and sound are filled in by now, so the loading placeholders in style.css can go. Like iso-hoops,
+// they stay up until at least 250ms after navigation, so a fast load doesn't just flash them.
+setTimeout(
+	() => {
+		for (const node of document.querySelectorAll('.stats, .shot-panel, .settings'))
+			node.classList.add('ready')
+	},
+	Math.max(0, 250 - performance.now()),
+)
+// The canvas shows once its first frame is drawn: this callback runs right after frame() in the same animation frame.
+requestAnimationFrame(() => nodes.stage.classList.add('ready'))

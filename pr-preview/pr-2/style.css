@@ -145,6 +145,65 @@ a:hover {
 #goals {
 	color: var(--green);
 }
+/* Loading placeholders, like iso-hoops. Until game.js has filled in the saved mode, pitch and sound, the text that can
+   change shows as a pulsing bar in a box that already has its final size, so nothing moves when the text arrives.
+   If game.js never marks them ready, the text underneath shows after 2s. */
+:is(.stats:not(.ready) :is(strong, span), .shot-panel:not(.ready) #feedback, .settings:not(.ready) [id$='-label']) {
+	position: relative;
+	animation: hide-text 0s 2s backwards;
+}
+:is(.stats:not(.ready) :is(strong, span), .shot-panel:not(.ready) #feedback, .settings:not(.ready) [id$='-label'])::before {
+	content: '';
+	position: absolute;
+	inset: calc(50% - 0.4em) 12%;
+	border-radius: 2px;
+	background: #eceee6;
+	animation:
+		skeleton 0.9s ease-in-out infinite alternate,
+		hide-skeleton 0s 2s forwards;
+}
+.settings:not(.ready) [id$='-label']::before {
+	inset: calc(50% - 4.5px) 0;
+}
+.shot-panel:not(.ready) #feedback::before {
+	inset: calc(50% - 5px) auto;
+	left: calc(50% - 110px);
+	width: 220px;
+}
+/* A saved shootout hides the stick, so it waits for game.js instead of showing and then vanishing. */
+.shot-panel:not(.ready) #stick {
+	visibility: hidden;
+}
+/* The canvas is placed and drawn by game.js; until then it would sit in the corner at its default size. */
+#stage:not(.ready) #c {
+	visibility: hidden;
+}
+@keyframes hide-text {
+	from,
+	to {
+		-webkit-text-fill-color: transparent;
+		text-shadow: none;
+	}
+}
+@keyframes skeleton {
+	to {
+		background: #dfe3d8;
+	}
+}
+@keyframes hide-skeleton {
+	to {
+		opacity: 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	:is(.stats:not(.ready) :is(strong, span), .shot-panel:not(.ready) #feedback, .settings:not(.ready) [id$='-label'])::before {
+		animation: hide-skeleton 0s 2s forwards;
+	}
+}
+/* Room for "100%" from the start, so the scoreboard doesn't widen and nudge its neighbours as accuracy changes. */
+#accuracy {
+	min-width: 4ch;
+}
 /* The stage spans the page; game.js places the canvas between the header and the shot panel. */
 #stage {
 	position: absolute;
@@ -789,11 +848,30 @@ dialog .round-numbers dd {
 	.menu-button {
 		padding: 6px 10px;
 	}
-	/* Three menus only fit a phone's width when each is as wide as its current value. */
+	/* Three menus share a phone's width in fixed columns, so a saved pitch or sound with a longer name doesn't resize
+	   and re-centre the card once game.js fills it in. A name too long for its column ends in an ellipsis. */
+	.settings {
+		display: grid;
+		grid-template-columns: 0.8fr 1.45fr 1fr;
+		width: min(100%, 340px);
+		margin: 0 auto;
+	}
+	.menu,
+	.menu-button {
+		min-width: 0;
+		width: 100%;
+	}
+	.menu-value {
+		display: flex;
+		max-width: 100%;
+		gap: 4px;
+	}
 	#mode-label,
 	#pitch-label,
 	#sound-label {
 		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.credits {
 		flex-wrap: wrap;
@@ -1165,6 +1243,43 @@ dialog .round-numbers dd {
 		font-size: 9px;
 	}
 	.credits > span {
+		display: none;
+	}
+}
+/* Phones (touch, portrait or landscape): no scoreboard card, just one row of bare numbers with their labels beside them,
+   so the pitch gets the height. Narrow desktop windows keep the card. */
+@media (pointer: coarse) and (max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+	.stats {
+		gap: 14px;
+		padding: 0;
+		border-radius: 0;
+		background: none;
+		box-shadow: none;
+	}
+	/* Every cell keeps the width of its longest value and label, in practice and shootout, so the centred row doesn't
+	   slide as numbers change or when game.js switches the labels to a saved shootout. */
+	.stats strong {
+		min-width: 3ch;
+		font-size: 13px;
+		text-align: right;
+	}
+	.stats > div > span {
+		min-width: calc(5 * (1ch + 1.1px));
+	}
+	.stats > div:last-child > span {
+		min-width: calc(8 * (1ch + 1.1px));
+	}
+	.stats > div {
+		display: flex;
+		align-items: baseline;
+		gap: 4px;
+		min-width: 0;
+	}
+	.stats span {
+		font-size: 7px;
+		letter-spacing: 1.1px;
+	}
+	.stats i {
 		display: none;
 	}
 }
