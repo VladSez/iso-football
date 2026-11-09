@@ -1,0 +1,1069 @@
+:root {
+	font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+	color: #34392e;
+	background: #fff;
+	font-synthesis: none;
+	--green: #52743c;
+	--muted: #85897f;
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 620px;
+	height: 100svh;
+	position: relative;
+}
+button,
+a {
+	-webkit-tap-highlight-color: transparent;
+}
+button {
+	font: inherit;
+	cursor: pointer;
+}
+a {
+	color: inherit;
+	text-decoration: none;
+}
+button:focus-visible,
+a:focus-visible {
+	outline: 2px solid var(--green);
+	outline-offset: 5px;
+}
+.header {
+	position: absolute;
+	inset: 32px 40px auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20px;
+	z-index: 2;
+}
+.wordmark {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	font-size: 9px;
+	line-height: 1.7;
+	letter-spacing: 1.5px;
+}
+.wordmark b {
+	font-size: 17px;
+	letter-spacing: 3.2px;
+	font-weight: 600;
+}
+.ball-mark {
+	width: 30px;
+	height: 30px;
+	color: var(--green);
+}
+.text-button {
+	background: transparent;
+	border: 0;
+	padding: 6px 0;
+	font-size: 11px;
+	color: var(--muted);
+}
+#help-open span {
+	margin-left: 12px;
+}
+.text-button:hover,
+a:hover {
+	color: var(--green);
+}
+.stats {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	display: flex;
+	gap: 27px;
+	align-items: center;
+	padding: 8px 18px;
+	background: #fff;
+}
+.stats > div {
+	display: grid;
+	gap: 7px;
+	text-align: center;
+	min-width: 47px;
+}
+.stats strong {
+	font-size: 23px;
+	font-weight: 400;
+	font-variant-numeric: tabular-nums;
+}
+.stats span {
+	font-size: 8px;
+	letter-spacing: 1.7px;
+	color: #686d61;
+}
+.stats i {
+	height: 23px;
+	width: 1px;
+	background: #eceee6;
+}
+#goals {
+	color: var(--green);
+}
+/* The stage spans the page; game.js places the canvas between the header and the shot panel. */
+#stage {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+}
+/* game.js zooms narrow screens to the pitch, so fade out the cropped scenery at the sides. */
+#stage.cropped {
+	-webkit-mask-image: linear-gradient(
+		90deg,
+		transparent,
+		#000 16px,
+		#000 calc(100% - 16px),
+		transparent
+	);
+	mask-image: linear-gradient(
+		90deg,
+		transparent,
+		#000 16px,
+		#000 calc(100% - 16px),
+		transparent
+	);
+}
+canvas {
+	position: absolute;
+	display: block;
+	image-rendering: pixelated;
+	cursor: crosshair;
+	touch-action: none;
+	outline: none;
+}
+.shot-panel {
+	position: absolute;
+	bottom: 76px;
+	width: 282px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 2;
+}
+#feedback {
+	margin: 0 0 21px;
+	height: 14px;
+	font-size: 10px;
+	color: var(--muted);
+	text-align: center;
+}
+#feedback.goal {
+	color: var(--green);
+}
+.shot-types {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	margin-bottom: 21px;
+}
+.shot-types button {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	border: 1px solid transparent;
+	background: none;
+	padding: 8px 11px;
+	font-size: 10px;
+	color: var(--muted);
+	border-radius: 3px;
+}
+.shot-types svg {
+	display: block;
+	width: 16px;
+	height: 12px;
+	overflow: visible;
+}
+.shot-types button[aria-pressed='true'] {
+	background: #f1f5ed;
+	border-color: #dae3d2;
+	color: #496636;
+}
+.shot-types button:hover {
+	color: var(--green);
+}
+.shot-types button:disabled {
+	cursor: default;
+}
+.shot-types > kbd {
+	margin-left: 6px;
+}
+.power-label {
+	display: flex;
+	justify-content: space-between;
+	font-size: 8px;
+	color: var(--muted);
+	letter-spacing: 1.3px;
+}
+#power-value {
+	color: #59604e;
+	font-variant-numeric: tabular-nums;
+}
+#power-meter {
+	height: 5px;
+	background: #ecefe7;
+	position: relative;
+	margin-top: 9px;
+	overflow: hidden;
+}
+#power-fill {
+	height: 100%;
+	width: 0;
+	background: var(--green);
+}
+#power-meter > i {
+	position: absolute;
+	top: 0;
+	height: 100%;
+	width: 2px;
+	background: #fff;
+}
+#power-meter > i:nth-of-type(1) {
+	left: 25%;
+}
+#power-meter > i:nth-of-type(2) {
+	left: 50%;
+}
+#power-meter > i:nth-of-type(3) {
+	left: 75%;
+}
+kbd {
+	font: inherit;
+	font-size: 8px;
+	color: #777d70;
+	padding: 3px 5px;
+	border: 1px solid #e0e5da;
+	border-radius: 3px;
+	background: white;
+	white-space: nowrap;
+}
+#shoot {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	width: 100%;
+	padding: 13px 0 0;
+	border: 0;
+	background: none;
+	color: var(--muted);
+	font-size: 9px;
+	user-select: none;
+	touch-action: none;
+}
+body.charging #shoot kbd {
+	color: var(--green);
+	border-color: var(--green);
+}
+#shoot:disabled {
+	cursor: default;
+}
+.footer {
+	position: absolute;
+	inset: auto 40px 22px;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	gap: 10px 14px;
+	align-items: center;
+	color: var(--muted);
+	font-size: 9px;
+	z-index: 2;
+}
+#controls {
+	display: flex;
+	align-items: center;
+	gap: 22px;
+}
+#controls > span {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	white-space: nowrap;
+}
+.alternate {
+	color: #8a8f82;
+}
+.mouse {
+	width: 9px;
+	height: 13px;
+	border: 1px solid #a1a797;
+	border-radius: 5px;
+}
+/* Pitch and Sound sit in one bordered group, each a small label over its value. */
+.settings {
+	display: flex;
+	border: 1px solid #e6e9e1;
+	border-radius: 6px;
+	background: #fff;
+}
+.settings .menu + .menu {
+	border-left: 1px solid #e6e9e1;
+}
+.menu {
+	position: relative;
+}
+.menu-button {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 3px;
+	min-height: 36px;
+	padding: 6px 14px;
+	border: 0;
+	background: none;
+	text-align: left;
+	white-space: nowrap;
+}
+.menu:first-child .menu-button {
+	border-radius: 5px 0 0 5px;
+}
+.menu:last-child .menu-button {
+	border-radius: 0 5px 5px 0;
+}
+.menu-button:focus-visible {
+	outline-offset: -2px;
+}
+.menu-button:hover,
+.menu-button[aria-expanded='true'] {
+	background: #f6f8f2;
+}
+.menu-name {
+	font-size: 7px;
+	letter-spacing: 1.4px;
+	color: #6f7468;
+}
+.menu-value {
+	font-size: 10px;
+	color: #34392e;
+}
+/* The font is monospace, so reserving the longest option keeps the group from shifting. */
+#pitch-label {
+	display: inline-block;
+	min-width: 18ch;
+}
+#sound-label {
+	display: inline-block;
+	min-width: 12ch;
+}
+#mode-label {
+	display: inline-block;
+	min-width: 8ch;
+}
+/* The penalty taker stays on the spot, so the stick has nothing to do. */
+body.shootout #stick {
+	visibility: hidden;
+}
+.menu-button:hover .menu-value,
+.menu-button[aria-expanded='true'] .menu-name,
+.menu-button[aria-expanded='true'] .menu-value {
+	color: var(--green);
+}
+.menu fieldset {
+	position: absolute;
+	bottom: calc(100% + 10px);
+	left: 0;
+	z-index: 3;
+	width: max-content;
+	min-width: 180px;
+	margin: 0;
+	padding: 0 0 6px;
+	border: 1px solid #e0e5da;
+	background: white;
+	box-shadow: 0 12px 40px #28231518;
+}
+.menu:last-child fieldset {
+	left: auto;
+	right: 0;
+}
+.menu fieldset[hidden] {
+	display: none;
+}
+.menu legend {
+	float: left;
+	width: 100%;
+	padding: 12px 12px 6px;
+	font-size: 8px;
+	letter-spacing: 1.4px;
+	color: var(--green);
+}
+.menu label {
+	clear: left;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 12px;
+	font-size: 10px;
+	color: #4c5244;
+	cursor: pointer;
+}
+.menu label:hover {
+	background: #f6f8f2;
+}
+.menu input {
+	accent-color: var(--green);
+	margin: 0;
+	width: 12px;
+	height: 12px;
+}
+.menu input:focus-visible {
+	outline: 2px solid var(--green);
+	outline-offset: 2px;
+}
+.credits {
+	justify-self: end;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 10px;
+	white-space: nowrap;
+}
+#callout {
+	position: absolute;
+	top: 25%;
+	left: 50%;
+	transform: translateX(-50%);
+	pointer-events: none;
+	font-size: 22px;
+	letter-spacing: 4px;
+	text-align: center;
+	color: var(--green);
+	background: #fffffff0;
+	padding: 14px 20px;
+	z-index: 3;
+}
+#callout small {
+	display: block;
+	font-size: 7px;
+	letter-spacing: 1px;
+	margin-top: 10px;
+}
+#pause-overlay {
+	position: absolute;
+	inset: 110px 0 235px;
+	display: grid;
+	place-content: center;
+	gap: 20px;
+	background: #ffffffc9;
+	z-index: 4;
+	text-align: center;
+	font-size: 12px;
+	letter-spacing: 2px;
+}
+#pause-overlay button {
+	background: white;
+	border: 1px solid #dce4d5;
+	color: var(--green);
+	padding: 12px 16px;
+	font-size: 10px;
+	letter-spacing: 0;
+}
+[hidden] {
+	display: none !important;
+}
+dialog {
+	width: min(460px, calc(100% - 32px));
+	max-height: calc(100svh - 40px);
+	padding: 30px;
+	border: 1px solid #e1e6da;
+	background: white;
+	color: #34392e;
+	box-shadow: 0 25px 100px #28312115;
+}
+dialog::backdrop {
+	background: #fffc;
+	backdrop-filter: blur(4px);
+}
+.dialog-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-size: 8px;
+	letter-spacing: 1px;
+	color: var(--green);
+}
+dialog h1 {
+	font:
+		400 36px/1.15 Georgia,
+		serif;
+	margin: 25px 0 16px;
+}
+dialog p {
+	font-size: 11px;
+	line-height: 1.8;
+	color: #7d8475;
+}
+dialog dl {
+	margin: 25px 0;
+}
+dialog dl > div {
+	border-top: 1px solid #edf0e8;
+	padding: 15px 0;
+}
+dialog dt {
+	color: var(--green);
+	font-size: 9px;
+	letter-spacing: 1px;
+}
+dialog dd {
+	margin: 9px 0 0;
+	font-size: 11px;
+	line-height: 1.8;
+}
+/* The card after each shootout: the kick sheet, then your numbers in a row of small cells. */
+.kick-sheet {
+	width: 100%;
+	margin-top: 22px;
+	border-collapse: collapse;
+}
+.kick-sheet caption,
+.kick-sheet th {
+	font-size: 9px;
+	letter-spacing: 1px;
+	color: var(--green);
+	text-align: left;
+	font-weight: 400;
+}
+.kick-sheet caption {
+	padding-bottom: 8px;
+}
+.kick-sheet th {
+	width: 64px;
+}
+.kick-sheet th,
+.kick-sheet td {
+	border-top: 1px solid #edf0e8;
+	padding: 10px 0;
+}
+.kick-sheet td {
+	font-size: 16px;
+	letter-spacing: 4px;
+	white-space: nowrap;
+}
+dialog .sheet-key {
+	margin: 4px 0 0;
+	font-size: 9px;
+}
+/* The target card's sheet: a football per ball, faded when it went in without a hit, faint when it
+   wasn't needed. Up to 14 balls, so the row may wrap on a phone. */
+.kick-sheet td:has(.ball-mark) {
+	white-space: normal;
+	letter-spacing: 0;
+	line-height: 0;
+}
+.ball-mark {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin: 3px 7px 3px 0;
+	color: #34392e;
+	vertical-align: middle;
+}
+.ball-mark svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.ball-mark.miss {
+	font-size: 16px;
+	line-height: 16px;
+	text-align: center;
+}
+.ball-mark.in {
+	opacity: 0.4;
+}
+.ball-mark.spare {
+	opacity: 0.14;
+}
+.sheet-key .ball-mark {
+	width: 10px;
+	height: 10px;
+	margin: 0 1px 0 0;
+	vertical-align: -1px;
+}
+.sheet-key .ball-mark.miss {
+	font-size: 10px;
+	line-height: 10px;
+}
+/* Phones: smaller balls and a narrower label keep a 14-ball round on one line. */
+@media (max-width: 480px) {
+	.kick-sheet th {
+		width: 46px;
+	}
+	.kick-sheet td .ball-mark {
+		width: 13px;
+		height: 13px;
+		margin-right: 3px;
+	}
+	.kick-sheet td .ball-mark.miss {
+		font-size: 13px;
+		line-height: 13px;
+	}
+}
+dialog .round-numbers {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+	gap: 0 12px;
+	margin: 18px 0 0;
+}
+dialog .round-shots {
+	margin: 4px 0 0;
+}
+dialog .round-numbers dd {
+	margin-top: 4px;
+	font-size: 16px;
+}
+.play-button {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	border: 0;
+	margin-top: 23px;
+	padding: 15px 16px;
+	color: white;
+	background: var(--green);
+	font-size: 11px;
+}
+/* Like iso-hoops: mid widths drop the control hints and stack settings over links. */
+@media (max-width: 1180px) and (min-width: 761px) {
+	#controls {
+		display: none;
+	}
+	.footer {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+	}
+	.shot-panel {
+		bottom: 104px;
+	}
+}
+@media (max-width: 760px) {
+	.header {
+		inset: 22px 22px auto;
+		flex-wrap: wrap;
+	}
+	.wordmark b {
+		font-size: 14px;
+	}
+	.stats {
+		position: static;
+		transform: none;
+		order: 3;
+		width: 100%;
+		justify-content: center;
+		gap: 14px;
+		padding: 8px 10px;
+		margin-top: 8px;
+	}
+	.shot-panel {
+		bottom: 140px;
+	}
+	.footer {
+		inset: auto 16px 16px;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		font-size: 8px;
+	}
+	#controls {
+		gap: 15px;
+	}
+	#controls kbd {
+		font-size: 8px;
+		padding: 2px 3px;
+	}
+	.alternate {
+		display: none;
+	}
+	.menu-button {
+		padding: 6px 10px;
+	}
+	/* Three menus only fit a phone's width when each is as wide as its current value. */
+	#mode-label,
+	#pitch-label,
+	#sound-label {
+		min-width: 0;
+	}
+	.credits {
+		flex-wrap: wrap;
+		justify-content: center;
+		row-gap: 4px;
+	}
+	#pause-overlay {
+		inset: 150px 0 240px;
+	}
+}
+@media (max-height: 700px) and (min-width: 761px) {
+	.header {
+		top: 20px;
+	}
+	.shot-panel {
+		bottom: 60px;
+	}
+	.shot-types {
+		margin-bottom: 14px;
+	}
+	#feedback {
+		margin-bottom: 12px;
+	}
+	.footer {
+		bottom: 16px;
+	}
+}
+/* Touch screens: an on-screen stick replaces WASD, ↺ / ↻ replace Q / E, and a round Shoot button replaces Space. */
+#stick,
+#turn,
+.touch-only {
+	display: none;
+}
+@media (pointer: coarse) {
+	/* A long press that misses a control would otherwise select nearby text, such as a menu's name. */
+	body {
+		touch-action: manipulation;
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
+	#help {
+		-webkit-user-select: text;
+		user-select: text;
+	}
+	.pointer-only,
+	#controls,
+	#shoot kbd,
+	#shoot-label,
+	.shot-types > kbd {
+		display: none;
+	}
+	.touch-only {
+		display: inline;
+	}
+	/* The gaps between the controls take no browser gestures either, so a thumb that misses the stick or Shoot
+	   can't double-tap zoom, or turn a stick-and-Shoot hold into a pinch. */
+	.shot-panel {
+		touch-action: none;
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		grid-template-areas:
+			'feedback feedback feedback'
+			'types types types'
+			'label label label'
+			'meter meter meter'
+			'stick turn shoot';
+		align-items: center;
+		width: calc(100% - 44px);
+		max-width: 420px;
+		bottom: 96px;
+	}
+	#feedback {
+		grid-area: feedback;
+		margin-bottom: 12px;
+	}
+	.shot-types {
+		grid-area: types;
+		margin-bottom: 12px;
+	}
+	.power-label {
+		grid-area: label;
+	}
+	#power-meter {
+		grid-area: meter;
+	}
+	#stick,
+	#shoot {
+		width: 96px;
+		height: 96px;
+		margin-top: 16px;
+		border: 1px solid #e0e5da;
+		border-radius: 50%;
+		background: #fff;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+	}
+	#stick {
+		grid-area: stick;
+		display: grid;
+		place-items: center;
+	}
+	#stick-knob {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: #f1f5ed;
+		border: 1px solid #d3dccb;
+		pointer-events: none;
+	}
+	#stick.active {
+		border-color: var(--green);
+	}
+	#stick.active #stick-knob {
+		background: var(--green);
+		border-color: var(--green);
+	}
+	#turn {
+		grid-area: turn;
+		display: flex;
+		justify-content: center;
+		gap: 8px;
+		margin-top: 16px;
+	}
+	#turn > span {
+		display: grid;
+		place-items: center;
+		width: 52px;
+		height: 52px;
+		border: 1px solid #e0e5da;
+		border-radius: 50%;
+		background: #fff;
+		color: #4c5244;
+		font-size: 22px;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+	#turn > span.active {
+		background: var(--green);
+		border-color: var(--green);
+		color: #fff;
+	}
+	#shoot {
+		grid-area: shoot;
+		padding: 0;
+		color: #34392e;
+		font-size: 11px;
+		letter-spacing: 2px;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+	body.charging #shoot {
+		background: var(--green);
+		border-color: var(--green);
+		color: #fff;
+	}
+	.footer {
+		justify-content: center;
+	}
+}
+@media (pointer: coarse) and (max-height: 700px) and (orientation: portrait) {
+	.stats strong {
+		font-size: 18px;
+	}
+	.stats > div {
+		gap: 4px;
+	}
+	#stick,
+	#shoot {
+		width: 84px;
+		height: 84px;
+		margin-top: 10px;
+	}
+	#turn {
+		margin-top: 10px;
+	}
+	#turn > span {
+		width: 46px;
+		height: 46px;
+	}
+	#feedback,
+	.shot-types {
+		margin-bottom: 8px;
+	}
+}
+/* Phone landscape: the pitch takes the middle, settings sit on the left, the stick and Shoot in the bottom corners. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+	body {
+		min-height: 0;
+		overflow: hidden;
+	}
+	.header {
+		top: 10px;
+		left: max(16px, env(safe-area-inset-left));
+		right: max(16px, env(safe-area-inset-right));
+		flex-wrap: nowrap;
+	}
+	.wordmark {
+		font-size: 7px;
+		gap: 8px;
+	}
+	.wordmark b {
+		font-size: 13px;
+	}
+	.ball-mark {
+		width: 24px;
+		height: 24px;
+	}
+	.stats {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: auto;
+		margin: 0;
+		gap: 14px;
+		padding: 4px 10px;
+	}
+	.stats strong {
+		font-size: 17px;
+	}
+	.stats > div {
+		gap: 4px;
+	}
+	.shot-panel {
+		left: max(16px, env(safe-area-inset-left));
+		right: max(16px, env(safe-area-inset-right));
+		bottom: 12px;
+		width: auto;
+		max-width: none;
+		transform: none;
+		grid-template-columns: auto auto minmax(0, 1fr) auto;
+		grid-template-rows: 1fr auto auto auto auto;
+		grid-template-areas:
+			'stick turn . shoot'
+			'stick turn feedback shoot'
+			'stick turn types shoot'
+			'stick turn label shoot'
+			'stick turn meter shoot';
+		column-gap: 12px;
+		pointer-events: none;
+	}
+	#feedback,
+	.shot-types,
+	.power-label,
+	#power-meter {
+		justify-self: center;
+		width: min(100%, 280px);
+		pointer-events: auto;
+	}
+	#feedback {
+		margin-bottom: 6px;
+	}
+	.shot-types {
+		margin-bottom: 6px;
+	}
+	.shot-types button {
+		padding: 5px 9px;
+	}
+	#stick,
+	#shoot {
+		width: 88px;
+		height: 88px;
+		margin: 0;
+		align-self: end;
+		pointer-events: auto;
+	}
+	/* Stacked beside the stick, so the left thumb moves and turns while the right one shoots. */
+	#turn {
+		flex-direction: column;
+		margin: 0;
+		align-self: end;
+		pointer-events: auto;
+	}
+	#turn > span {
+		width: 40px;
+		height: 40px;
+		font-size: 18px;
+	}
+	.footer {
+		display: flex;
+		top: 60px;
+		bottom: auto;
+		left: max(16px, env(safe-area-inset-left));
+		right: auto;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 10px;
+	}
+	.settings {
+		flex-direction: column;
+	}
+	.settings .menu + .menu {
+		border-left: 0;
+		border-top: 1px solid #e6e9e1;
+	}
+	.menu:first-child .menu-button,
+	.menu:last-child .menu-button {
+		border-radius: 5px;
+	}
+	.menu-button {
+		min-height: 0;
+		padding: 5px 10px;
+	}
+	.menu fieldset,
+	.menu:last-child fieldset {
+		top: 0;
+		bottom: auto;
+		left: calc(100% + 8px);
+		right: auto;
+	}
+	.credits {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+		font-size: 9px;
+	}
+	.credits > span {
+		display: none;
+	}
+}
+/* Phone portrait: the links wrap to two lines, so the controls sit higher to stay clear of the settings group. */
+@media (pointer: coarse) and (max-width: 760px) and (orientation: portrait) {
+	.shot-panel {
+		bottom: 112px;
+	}
+}
+/* Touch screens zoom to the play area (game.js), so the grass and scenery that crop fade out instead of ending
+   in a straight line: across the gaps above and below the play area, at the screen's sides, and beside the
+   settings column in phone landscape. */
+@media (pointer: coarse) {
+	#stage {
+		--fit-top: 0px;
+		--fit-bottom: 100%;
+		--fit-left: 0px;
+		-webkit-mask-image:
+			linear-gradient(
+				transparent var(--fit-top),
+				#000 calc(var(--fit-top) + 16px),
+				#000 calc(var(--fit-bottom) - 16px),
+				transparent var(--fit-bottom)
+			),
+			linear-gradient(
+				90deg,
+				transparent var(--fit-left),
+				#000 calc(var(--fit-left) + 16px),
+				#000 calc(100% - 16px),
+				transparent
+			);
+		-webkit-mask-composite: source-in;
+		mask-image:
+			linear-gradient(
+				transparent var(--fit-top),
+				#000 calc(var(--fit-top) + 16px),
+				#000 calc(var(--fit-bottom) - 16px),
+				transparent var(--fit-bottom)
+			),
+			linear-gradient(
+				90deg,
+				transparent var(--fit-left),
+				#000 calc(var(--fit-left) + 16px),
+				#000 calc(100% - 16px),
+				transparent
+			);
+		mask-composite: intersect;
+	}
+}
