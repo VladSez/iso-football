@@ -502,30 +502,62 @@ body.shootout #stick {
 	font-size: 10px;
 	white-space: nowrap;
 }
+/* GOAL! pops up over the crossbar like a sticker, with a tag under it; game.js places it. */
 #callout {
 	position: absolute;
-	top: 25%;
-	left: 50%;
-	transform: translateX(-50%);
-	pointer-events: none;
-	font-size: 22px;
-	letter-spacing: 4px;
-	text-align: center;
-	color: var(--green);
-	background: #fbfdf6;
-	padding: 14px 20px;
-	border-radius: 10px;
-	box-shadow:
-		0 0 0 1px #d5e0c6,
-		0 4px 8px #52743c2b,
-		0 16px 30px -8px #52743c59;
 	z-index: 3;
+	transform: translate(-50%, -100%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	white-space: nowrap;
+	pointer-events: none;
+	--sticker: #fff;
+	--stamp: #34392e;
 }
-#callout small {
-	display: block;
-	font-size: 7px;
+#callout strong {
+	position: relative;
+	z-index: 1;
+	color: var(--green);
+	font-size: 24px;
+	font-weight: 800;
 	letter-spacing: 1px;
-	margin-top: 10px;
+	text-shadow:
+		-2px 0 0 var(--sticker), 2px 0 0 var(--sticker), 0 -2px 0 var(--sticker), 0 2px 0 var(--sticker),
+		-2px -2px 0 var(--sticker), 2px -2px 0 var(--sticker), -2px 2px 0 var(--sticker), 2px 2px 0 var(--sticker),
+		4px 4px 0 var(--stamp),
+		0 8px 14px #232c184d;
+}
+#callout span {
+	margin-top: -2px;
+	padding: 4px 9px 3px;
+	border-radius: 3px;
+	background: var(--green);
+	color: #fff;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 1.2px;
+	box-shadow: 2px 2px 0 var(--stamp), 0 6px 10px #232c1840;
+}
+#callout.celebrate {
+	animation: goal-pop 1.8s both;
+}
+#goals.scored {
+	animation: score-pop 0.5s ease-out;
+}
+@keyframes score-pop {
+	35% { transform: scale(1.4); }
+}
+@keyframes goal-pop {
+	0% { opacity: 0; transform: translate(-50%, calc(-100% + 8px)) scale(0.85); }
+	12%, 80% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+	100% { opacity: 0; transform: translate(-50%, calc(-100% - 8px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+	#callout.celebrate,
+	#goals.scored {
+		animation: none;
+	}
 }
 #pause-overlay {
 	position: absolute;
@@ -668,6 +700,19 @@ dialog .round-numbers dd {
 		inset 0 1px 0 #ffffff40,
 		0 3px 0 #3a5429,
 		0 8px 18px -4px #3a54296b;
+	transition:
+		transform 0.1s,
+		box-shadow 0.1s;
+}
+.play-button:hover {
+	transform: translateY(-1px);
+}
+.play-button:active {
+	transform: translateY(2px);
+	box-shadow:
+		inset 0 1px 0 #ffffff40,
+		0 1px 0 #3a5429,
+		0 3px 8px -4px #3a54296b;
 }
 /* Like iso-hoops: mid widths drop the control hints and stack settings over links. */
 @media (max-width: 1180px) and (min-width: 761px) {
@@ -900,9 +945,26 @@ dialog .round-numbers dd {
 		color: #34392e;
 		font-size: 11px;
 		letter-spacing: 2px;
+		/* Springs back a little when let go. */
 		transition:
 			background 0.15s,
-			color 0.15s;
+			color 0.15s,
+			transform 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+	}
+	#shoot:active,
+	body.charging #shoot {
+		transform: scale(0.96);
+		transition:
+			background 0.15s,
+			color 0.15s,
+			transform 0.1s ease-out;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#shoot,
+		#shoot:active,
+		body.charging #shoot {
+			transform: none;
+		}
 	}
 	body.charging #shoot {
 		background: var(--dome-active);
