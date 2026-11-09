@@ -1,7 +1,7 @@
 // Target practice: bullseyes hang in the net. Knock every one down within eight balls to go
 // on to the next round, where the targets move and get smaller and higher. Run out first and you
 // take that round again. Clear the last round to complete the run.
-import { BALL_RADIUS } from './physics.js?v=6'
+import { BALL_RADIUS } from './physics.js?v=14'
 
 // How many balls you get to clear each round.
 export const BALLS = 8

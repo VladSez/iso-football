@@ -5,6 +5,12 @@
 	font-synthesis: none;
 	--green: #52743c;
 	--muted: #85897f;
+	/* Raised surfaces: a hairline ring, a contact shadow and a soft drop. */
+	--raised: inset 0 1px 0 #fff, 0 0 0 1px #e6e9df, 0 2px 3px #232c1814, 0 12px 26px -8px #232c1829;
+	--raised-small: 0 0 0 1px #e6e9df, 0 2px 3px #232c1812, 0 6px 14px -4px #232c181f;
+	/* Domed touch buttons. */
+	--dome: radial-gradient(circle at 50% 35%, #fff, #f1f3ec);
+	--dome-active: radial-gradient(circle at 50% 30%, #79a15b, #48672f);
 }
 * {
 	box-sizing: border-box;
@@ -15,6 +21,7 @@ body {
 	min-height: 620px;
 	height: 100svh;
 	position: relative;
+	background: radial-gradient(ellipse 60% 45% at 50% 50%, #f1f4ea, #fff 70%);
 }
 button,
 a {
@@ -45,20 +52,27 @@ a:focus-visible {
 .wordmark {
 	display: flex;
 	align-items: center;
-	gap: 11px;
-	font-size: 9px;
-	line-height: 1.7;
-	letter-spacing: 1.5px;
+	gap: 10px;
+	font-size: 7px;
+	line-height: 1;
+	letter-spacing: 2.6px;
+}
+.wordmark > span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
 }
 .wordmark b {
-	font-size: 17px;
-	letter-spacing: 3.2px;
-	font-weight: 600;
+	color: var(--green);
+	font-size: 20px;
+	letter-spacing: 0.6px;
+	font-weight: 800;
 }
 .ball-mark {
-	width: 30px;
-	height: 30px;
-	color: var(--green);
+	display: block;
+	width: 32px;
+	height: 32px;
+	image-rendering: pixelated;
 }
 .text-button {
 	background: transparent;
@@ -66,6 +80,23 @@ a:focus-visible {
 	padding: 6px 0;
 	font-size: 11px;
 	color: var(--muted);
+}
+#help-open {
+	padding: 9px 14px;
+	border-radius: 999px;
+	background: #fff;
+	color: #5f645a;
+	box-shadow: var(--raised-small);
+	transition:
+		box-shadow 0.15s,
+		transform 0.15s;
+}
+#help-open:hover {
+	box-shadow:
+		0 0 0 1px #dde2d4,
+		0 4px 6px #232c1814,
+		0 12px 22px -6px #232c1829;
+	transform: translateY(-1px);
 }
 #help-open span {
 	margin-left: 12px;
@@ -82,8 +113,10 @@ a:hover {
 	display: flex;
 	gap: 27px;
 	align-items: center;
-	padding: 8px 18px;
-	background: #fff;
+	padding: 12px 24px;
+	border-radius: 14px;
+	background: linear-gradient(#fff, #fafbf7);
+	box-shadow: var(--raised);
 }
 .stats > div {
 	display: grid;
@@ -95,6 +128,9 @@ a:hover {
 	font-size: 23px;
 	font-weight: 400;
 	font-variant-numeric: tabular-nums;
+	text-shadow:
+		0 1px 0 #fff,
+		0 2px 3px #232c181f;
 }
 .stats span {
 	font-size: 8px;
@@ -104,10 +140,69 @@ a:hover {
 .stats i {
 	height: 23px;
 	width: 1px;
-	background: #eceee6;
+	background: linear-gradient(#0000, #dde1d5, #0000);
 }
 #goals {
 	color: var(--green);
+}
+/* Loading placeholders, like iso-hoops. Until game.js has filled in the saved mode, pitch and sound, the text that can
+   change shows as a pulsing bar in a box that already has its final size, so nothing moves when the text arrives.
+   If game.js never marks them ready, the text underneath shows after 2s. */
+:is(.stats:not(.ready) :is(strong, span), .shot-panel:not(.ready) #feedback, .settings:not(.ready) [id$='-label']) {
+	position: relative;
+	animation: hide-text 0s 2s backwards;
+}
+:is(.stats:not(.ready) :is(strong, span), .shot-panel:not(.ready) #feedback, .settings:not(.ready) [id$='-label'])::before {
+	content: '';
+	position: absolute;
+	inset: calc(50% - 0.4em) 12%;
+	border-radius: 2px;
+	background: #eceee6;
+	animation:
+		skeleton 0.9s ease-in-out infinite alternate,
+		hide-skeleton 0s 2s forwards;
+}
+.settings:not(.ready) [id$='-label']::before {
+	inset: calc(50% - 4.5px) 0;
+}
+.shot-panel:not(.ready) #feedback::before {
+	inset: calc(50% - 5px) auto;
+	left: calc(50% - 110px);
+	width: 220px;
+}
+/* A saved shootout hides the stick, so it waits for game.js instead of showing and then vanishing. */
+.shot-panel:not(.ready) #stick {
+	visibility: hidden;
+}
+/* The canvas is placed and drawn by game.js; until then it would sit in the corner at its default size. */
+#stage:not(.ready) #c {
+	visibility: hidden;
+}
+@keyframes hide-text {
+	from,
+	to {
+		-webkit-text-fill-color: transparent;
+		text-shadow: none;
+	}
+}
+@keyframes skeleton {
+	to {
+		background: #dfe3d8;
+	}
+}
+@keyframes hide-skeleton {
+	to {
+		opacity: 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	:is(.stats:not(.ready) :is(strong, span), .shot-panel:not(.ready) #feedback, .settings:not(.ready) [id$='-label'])::before {
+		animation: hide-skeleton 0s 2s forwards;
+	}
+}
+/* Room for "100%" from the start, so the scoreboard doesn't widen and nudge its neighbours as accuracy changes. */
+#accuracy {
+	min-width: 4ch;
 }
 /* The stage spans the page; game.js places the canvas between the header and the shot panel. */
 #stage {
@@ -139,6 +234,8 @@ canvas {
 	cursor: crosshair;
 	touch-action: none;
 	outline: none;
+	/* The pitch is drawn on a transparent backdrop, so the shadow follows its edge and it floats off the page. */
+	filter: drop-shadow(0 10px 6px #2f3a2133) drop-shadow(0 34px 28px #2f3a2133);
 }
 .shot-panel {
 	position: absolute;
@@ -168,13 +265,27 @@ canvas {
 .shot-types button {
 	display: flex;
 	align-items: center;
-	gap: 18px;
-	border: 1px solid transparent;
+	gap: 10px;
+	border: 0;
 	background: none;
-	padding: 8px 11px;
+	padding: 7px 12px;
 	font-size: 10px;
-	color: var(--muted);
-	border-radius: 3px;
+	color: #6c7166;
+	border-radius: 8px;
+	transition:
+		background 0.15s,
+		box-shadow 0.15s,
+		color 0.15s;
+}
+/* Chip and Low shot share a sunken track; the chosen one sits raised in it. */
+.shot-track {
+	display: flex;
+	padding: 3px;
+	border-radius: 10px;
+	background: #eef0e9;
+	box-shadow:
+		inset 0 1px 2px #232c181f,
+		0 1px 0 #fff;
 }
 .shot-types svg {
 	display: block;
@@ -183,8 +294,10 @@ canvas {
 	overflow: visible;
 }
 .shot-types button[aria-pressed='true'] {
-	background: #f1f5ed;
-	border-color: #dae3d2;
+	background: linear-gradient(#fff, #f8f9f4);
+	box-shadow:
+		0 0 0 1px #e1e5d9,
+		0 2px 4px #232c181a;
 	color: #496636;
 }
 .shot-types button:hover {
@@ -208,23 +321,32 @@ canvas {
 	font-variant-numeric: tabular-nums;
 }
 #power-meter {
-	height: 5px;
-	background: #ecefe7;
+	height: 10px;
+	border-radius: 6px;
+	background: #e8ebe2;
 	position: relative;
 	margin-top: 9px;
 	overflow: hidden;
+	box-shadow:
+		inset 0 2px 3px #232c182e,
+		inset 0 -1px 0 #fff,
+		0 1px 0 #fff;
 }
 #power-fill {
 	height: 100%;
 	width: 0;
-	background: var(--green);
+	border-radius: 6px;
+	background: linear-gradient(#79a15b, var(--green) 60%, #45632f);
+	box-shadow:
+		inset 0 1px 0 #ffffff59,
+		2px 0 4px #2f4a1c40;
 }
 #power-meter > i {
 	position: absolute;
 	top: 0;
 	height: 100%;
-	width: 2px;
-	background: #fff;
+	width: 1px;
+	background: #ffffffb3;
 }
 #power-meter > i:nth-of-type(1) {
 	left: 25%;
@@ -235,14 +357,17 @@ canvas {
 #power-meter > i:nth-of-type(3) {
 	left: 75%;
 }
+/* Keycaps: a thicker bottom edge that flattens while the key is held. */
 kbd {
 	font: inherit;
 	font-size: 8px;
-	color: #777d70;
-	padding: 3px 5px;
-	border: 1px solid #e0e5da;
-	border-radius: 3px;
-	background: white;
+	color: #5f645a;
+	padding: 3px 6px 2px;
+	border: 1px solid #dde1d5;
+	border-bottom-width: 3px;
+	border-radius: 5px;
+	background: linear-gradient(#fff, #f7f8f3);
+	box-shadow: 0 2px 3px #232c181a;
 	white-space: nowrap;
 }
 #shoot {
@@ -259,9 +384,13 @@ kbd {
 	user-select: none;
 	touch-action: none;
 }
+#shoot:active kbd,
 body.charging #shoot kbd {
 	color: var(--green);
 	border-color: var(--green);
+	border-bottom-width: 1px;
+	transform: translateY(2px);
+	box-shadow: 0 0 1px #232c181a;
 }
 #shoot:disabled {
 	cursor: default;
@@ -300,12 +429,12 @@ body.charging #shoot kbd {
 /* Pitch and Sound sit in one bordered group, each a small label over its value. */
 .settings {
 	display: flex;
-	border: 1px solid #e6e9e1;
-	border-radius: 6px;
-	background: #fff;
+	border-radius: 12px;
+	background: linear-gradient(#fff, #fafbf7);
+	box-shadow: var(--raised);
 }
 .settings .menu + .menu {
-	border-left: 1px solid #e6e9e1;
+	border-left: 1px solid #eceee7;
 }
 .menu {
 	position: relative;
@@ -323,17 +452,20 @@ body.charging #shoot kbd {
 	white-space: nowrap;
 }
 .menu:first-child .menu-button {
-	border-radius: 5px 0 0 5px;
+	border-radius: 12px 0 0 12px;
 }
 .menu:last-child .menu-button {
-	border-radius: 0 5px 5px 0;
+	border-radius: 0 12px 12px 0;
 }
 .menu-button:focus-visible {
 	outline-offset: -2px;
 }
-.menu-button:hover,
-.menu-button[aria-expanded='true'] {
+.menu-button:hover {
 	background: #f6f8f2;
+}
+.menu-button[aria-expanded='true'] {
+	background: #eff2e9;
+	box-shadow: inset 0 2px 4px #232c181f;
 }
 .menu-name {
 	font-size: 7px;
@@ -368,16 +500,20 @@ body.shootout #stick {
 }
 .menu fieldset {
 	position: absolute;
-	bottom: calc(100% + 10px);
+	bottom: calc(100% + 14px);
 	left: 0;
 	z-index: 3;
 	width: max-content;
 	min-width: 180px;
 	margin: 0;
 	padding: 0 0 6px;
-	border: 1px solid #e0e5da;
+	border: 0;
+	border-radius: 12px;
 	background: white;
-	box-shadow: 0 12px 40px #28231518;
+	box-shadow:
+		0 0 0 1px #e6e9df,
+		0 4px 8px #232c1814,
+		0 24px 48px -12px #232c183d;
 }
 .menu:last-child fieldset {
 	left: auto;
@@ -425,25 +561,62 @@ body.shootout #stick {
 	font-size: 10px;
 	white-space: nowrap;
 }
+/* GOAL! pops up over the crossbar like a sticker, with a tag under it; game.js places it. */
 #callout {
 	position: absolute;
-	top: 25%;
-	left: 50%;
-	transform: translateX(-50%);
-	pointer-events: none;
-	font-size: 22px;
-	letter-spacing: 4px;
-	text-align: center;
-	color: var(--green);
-	background: #fffffff0;
-	padding: 14px 20px;
 	z-index: 3;
+	transform: translate(-50%, -100%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	white-space: nowrap;
+	pointer-events: none;
+	--sticker: #fff;
+	--stamp: #34392e;
 }
-#callout small {
-	display: block;
-	font-size: 7px;
+#callout strong {
+	position: relative;
+	z-index: 1;
+	color: var(--green);
+	font-size: 24px;
+	font-weight: 800;
 	letter-spacing: 1px;
-	margin-top: 10px;
+	text-shadow:
+		-2px 0 0 var(--sticker), 2px 0 0 var(--sticker), 0 -2px 0 var(--sticker), 0 2px 0 var(--sticker),
+		-2px -2px 0 var(--sticker), 2px -2px 0 var(--sticker), -2px 2px 0 var(--sticker), 2px 2px 0 var(--sticker),
+		4px 4px 0 var(--stamp),
+		0 8px 14px #232c184d;
+}
+#callout span {
+	margin-top: -2px;
+	padding: 4px 9px 3px;
+	border-radius: 3px;
+	background: var(--green);
+	color: #fff;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 1.2px;
+	box-shadow: 2px 2px 0 var(--stamp), 0 6px 10px #232c1840;
+}
+#callout.celebrate {
+	animation: goal-pop 1.8s both;
+}
+#goals.scored {
+	animation: score-pop 0.5s ease-out;
+}
+@keyframes score-pop {
+	35% { transform: scale(1.4); }
+}
+@keyframes goal-pop {
+	0% { opacity: 0; transform: translate(-50%, calc(-100% + 8px)) scale(0.85); }
+	12%, 80% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+	100% { opacity: 0; transform: translate(-50%, calc(-100% - 8px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+	#callout.celebrate,
+	#goals.scored {
+		animation: none;
+	}
 }
 #pause-overlay {
 	position: absolute;
@@ -451,7 +624,8 @@ body.shootout #stick {
 	display: grid;
 	place-content: center;
 	gap: 20px;
-	background: #ffffffc9;
+	/* Fades out at the edges, so no box shows over the page's glow. */
+	background: radial-gradient(ellipse 50% 50% at 50% 50%, #ffffffd9 40%, #fff0);
 	z-index: 4;
 	text-align: center;
 	font-size: 12px;
@@ -459,11 +633,13 @@ body.shootout #stick {
 }
 #pause-overlay button {
 	background: white;
-	border: 1px solid #dce4d5;
+	border: 0;
+	border-radius: 999px;
 	color: var(--green);
-	padding: 12px 16px;
+	padding: 12px 18px;
 	font-size: 10px;
 	letter-spacing: 0;
+	box-shadow: var(--raised-small);
 }
 [hidden] {
 	display: none !important;
@@ -472,10 +648,14 @@ dialog {
 	width: min(460px, calc(100% - 32px));
 	max-height: calc(100svh - 40px);
 	padding: 30px;
-	border: 1px solid #e1e6da;
+	border: 0;
+	border-radius: 16px;
 	background: white;
 	color: #34392e;
-	box-shadow: 0 25px 100px #28312115;
+	box-shadow:
+		0 0 0 1px #e6e9df,
+		0 8px 16px #232c1814,
+		0 40px 100px -20px #232c184d;
 }
 dialog::backdrop {
 	background: #fffc;
@@ -630,6 +810,24 @@ dialog .round-numbers dd {
 	color: white;
 	background: var(--green);
 	font-size: 11px;
+	border-radius: 10px;
+	box-shadow:
+		inset 0 1px 0 #ffffff40,
+		0 3px 0 #3a5429,
+		0 8px 18px -4px #3a54296b;
+	transition:
+		transform 0.1s,
+		box-shadow 0.1s;
+}
+.play-button:hover {
+	transform: translateY(-1px);
+}
+.play-button:active {
+	transform: translateY(2px);
+	box-shadow:
+		inset 0 1px 0 #ffffff40,
+		0 1px 0 #3a5429,
+		0 3px 8px -4px #3a54296b;
 }
 /* Like iso-hoops: mid widths drop the control hints and stack settings over links. */
 @media (max-width: 1180px) and (min-width: 761px) {
@@ -652,17 +850,36 @@ dialog .round-numbers dd {
 		flex-wrap: wrap;
 	}
 	.wordmark b {
-		font-size: 14px;
+		font-size: 17px;
+	}
+	.ball-mark {
+		width: 28px;
+		height: 28px;
 	}
 	.stats {
 		position: static;
 		transform: none;
 		order: 3;
-		width: 100%;
+		width: auto;
+		margin: 8px auto 0;
 		justify-content: center;
-		gap: 14px;
-		padding: 8px 10px;
-		margin-top: 8px;
+		gap: 12px;
+		padding: 6px 14px;
+	}
+	/* Smaller numbers on phones, so the pitch below gets the height. */
+	.stats strong {
+		font-size: 18px;
+	}
+	.stats > div {
+		gap: 3px;
+		min-width: 44px;
+	}
+	.stats span {
+		font-size: 7px;
+		letter-spacing: 1.4px;
+	}
+	.stats i {
+		height: 18px;
 	}
 	.shot-panel {
 		bottom: 140px;
@@ -687,11 +904,33 @@ dialog .round-numbers dd {
 	.menu-button {
 		padding: 6px 10px;
 	}
-	/* Three menus only fit a phone's width when each is as wide as its current value. */
+	/* Three menus share a phone's width in fixed columns, so a saved pitch or sound with a longer name doesn't resize
+	   and re-centre the card once game.js fills it in. A name too long for its column ends in an ellipsis. */
+	.settings {
+		display: grid;
+		grid-template-columns: 0.8fr 1.45fr 1fr;
+		width: min(100%, 340px);
+		margin: 0 auto;
+	}
+	.menu,
+	.menu-button {
+		min-width: 0;
+		width: 100%;
+	}
+	/* The value fills its column and the ▾ sits at the column's right edge, so a longer saved name doesn't push it. */
+	.menu-value {
+		display: flex;
+		justify-content: space-between;
+		width: 100%;
+		gap: 4px;
+	}
 	#mode-label,
 	#pitch-label,
 	#sound-label {
+		flex: 1;
 		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.credits {
 		flex-wrap: wrap;
@@ -783,9 +1022,14 @@ dialog .round-numbers dd {
 		width: 96px;
 		height: 96px;
 		margin-top: 16px;
-		border: 1px solid #e0e5da;
+		border: 0;
 		border-radius: 50%;
-		background: #fff;
+		background: var(--dome);
+		box-shadow:
+			inset 0 1px 0 #fff,
+			0 0 0 1px #e1e5d9,
+			0 4px 6px #232c181a,
+			0 14px 28px -8px #232c1833;
 		touch-action: none;
 		user-select: none;
 		-webkit-user-select: none;
@@ -800,16 +1044,20 @@ dialog .round-numbers dd {
 		width: 40px;
 		height: 40px;
 		border-radius: 50%;
-		background: #f1f5ed;
-		border: 1px solid #d3dccb;
+		background: radial-gradient(circle at 50% 30%, #fff, #e7eadf);
+		box-shadow:
+			0 3px 6px #232c1833,
+			0 0 0 1px #d6dccd;
 		pointer-events: none;
 	}
 	#stick.active {
-		border-color: var(--green);
+		box-shadow:
+			inset 0 2px 5px #232c1824,
+			0 0 0 1px var(--green);
 	}
 	#stick.active #stick-knob {
-		background: var(--green);
-		border-color: var(--green);
+		background: var(--dome-active);
+		box-shadow: 0 3px 6px #2a3d1859;
 	}
 	#turn {
 		grid-area: turn;
@@ -823,9 +1071,11 @@ dialog .round-numbers dd {
 		place-items: center;
 		width: 52px;
 		height: 52px;
-		border: 1px solid #e0e5da;
 		border-radius: 50%;
-		background: #fff;
+		background: var(--dome);
+		box-shadow:
+			0 0 0 1px #e1e5d9,
+			0 3px 6px #232c181a;
 		color: #4c5244;
 		font-size: 22px;
 		touch-action: none;
@@ -838,7 +1088,7 @@ dialog .round-numbers dd {
 	}
 	#turn > span.active {
 		background: var(--green);
-		border-color: var(--green);
+		box-shadow: inset 0 2px 4px #2a3d1859;
 		color: #fff;
 	}
 	#shoot {
@@ -847,13 +1097,32 @@ dialog .round-numbers dd {
 		color: #34392e;
 		font-size: 11px;
 		letter-spacing: 2px;
+		/* Springs back a little when let go. */
 		transition:
 			background 0.15s,
-			color 0.15s;
+			color 0.15s,
+			transform 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+	}
+	#shoot:active,
+	body.charging #shoot {
+		transform: scale(0.96);
+		transition:
+			background 0.15s,
+			color 0.15s,
+			transform 0.1s ease-out;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#shoot,
+		#shoot:active,
+		body.charging #shoot {
+			transform: none;
+		}
 	}
 	body.charging #shoot {
-		background: var(--green);
-		border-color: var(--green);
+		background: var(--dome-active);
+		box-shadow:
+			inset 0 3px 6px #2a3d1859,
+			0 1px 2px #232c1829;
 		color: #fff;
 	}
 	.footer {
@@ -862,10 +1131,10 @@ dialog .round-numbers dd {
 }
 @media (pointer: coarse) and (max-height: 700px) and (orientation: portrait) {
 	.stats strong {
-		font-size: 18px;
+		font-size: 16px;
 	}
 	.stats > div {
-		gap: 4px;
+		gap: 2px;
 	}
 	#stick,
 	#shoot {
@@ -904,6 +1173,13 @@ dialog .round-numbers dd {
 	.wordmark b {
 		font-size: 13px;
 	}
+	.wordmark {
+		font-size: 6px;
+		letter-spacing: 2px;
+	}
+	.wordmark b {
+		font-size: 15px;
+	}
 	.ball-mark {
 		width: 24px;
 		height: 24px;
@@ -915,14 +1191,22 @@ dialog .round-numbers dd {
 		transform: translate(-50%, -50%);
 		width: auto;
 		margin: 0;
-		gap: 14px;
-		padding: 4px 10px;
+		gap: 12px;
+		padding: 3px 10px;
 	}
 	.stats strong {
-		font-size: 17px;
+		font-size: 15px;
 	}
 	.stats > div {
-		gap: 4px;
+		gap: 2px;
+		min-width: 40px;
+	}
+	.stats span {
+		font-size: 7px;
+		letter-spacing: 1.2px;
+	}
+	.stats i {
+		height: 16px;
 	}
 	.shot-panel {
 		left: max(16px, env(safe-area-inset-left));
@@ -989,16 +1273,21 @@ dialog .round-numbers dd {
 		align-items: flex-start;
 		gap: 10px;
 	}
+	/* A column of a fixed width, so a saved pitch with a longer name doesn't widen it and move the pitch beside it.
+	   It also undoes the phone portrait grid, which narrow landscape phones (up to 760px wide) would otherwise get. */
 	.settings {
+		display: flex;
 		flex-direction: column;
+		width: 136px;
+		margin: 0;
 	}
 	.settings .menu + .menu {
 		border-left: 0;
-		border-top: 1px solid #e6e9e1;
+		border-top: 1px solid #eceee7;
 	}
 	.menu:first-child .menu-button,
 	.menu:last-child .menu-button {
-		border-radius: 5px;
+		border-radius: 12px;
 	}
 	.menu-button {
 		min-height: 0;
@@ -1021,10 +1310,95 @@ dialog .round-numbers dd {
 		display: none;
 	}
 }
-/* Phone portrait: the links wrap to two lines, so the controls sit higher to stay clear of the settings group. */
+/* Phones (touch, portrait or landscape): the scoreboard is one line, each number with its label beside it, in a low
+   card, so the pitch gets the height. Narrow desktop windows keep the stacked card. */
+@media (pointer: coarse) and (max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+	.stats {
+		gap: 10px;
+		padding: 6px 14px;
+		border-radius: 12px;
+	}
+	/* Every cell keeps the width of its longest value and label in every mode (TARGETS, ACCURACY), so the centred row
+	   doesn't slide as numbers change or when game.js switches the labels to a saved mode. */
+	.stats strong {
+		min-width: 3ch;
+		font-size: 15px;
+		text-align: right;
+	}
+	.stats > div > span {
+		min-width: calc(5 * (1ch + 1.1px));
+	}
+	.stats > div:first-child > span {
+		min-width: calc(7 * (1ch + 1.1px));
+	}
+	.stats > div:last-child > span {
+		min-width: calc(8 * (1ch + 1.1px));
+	}
+	.stats > div {
+		display: flex;
+		align-items: baseline;
+		gap: 4px;
+		min-width: 0;
+	}
+	.stats span {
+		font-size: 7px;
+		letter-spacing: 1.1px;
+	}
+	.stats i {
+		height: 12px;
+	}
+}
+/* Narrow phones (under 390px) get a tighter scoreboard card, so it fits a 320px screen without making the page wider
+   than the screen. The cells still keep a fixed width, so nothing slides. */
+@media (pointer: coarse) and (max-width: 389px) {
+	.stats {
+		gap: 6px;
+		padding: 6px 10px;
+	}
+	.stats strong {
+		font-size: 13px;
+	}
+	.stats > div {
+		gap: 3px;
+	}
+	.stats span {
+		letter-spacing: 0.6px;
+	}
+	.stats > div > span {
+		min-width: calc(5 * (1ch + 0.6px));
+	}
+	.stats > div:first-child > span {
+		min-width: calc(7 * (1ch + 0.6px));
+	}
+	.stats > div:last-child > span {
+		min-width: calc(8 * (1ch + 0.6px));
+	}
+}
+/* Like iso-hoops: on short landscape screens, such as a phone with the browser's bars showing, the links would run
+   into the stick, so only the settings stay. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 360px) {
+	.credits {
+		display: none;
+	}
+}
+/* Phone portrait: the header sits close to the top and the controls close to the settings, so the pitch between them
+   gets the height. The links wrap to two lines on narrow phones, so the controls sit higher there. */
 @media (pointer: coarse) and (max-width: 760px) and (orientation: portrait) {
+	.header {
+		top: max(12px, env(safe-area-inset-top));
+	}
+	/* Centred on the screen on its own line, even when it's wider than the header's gutters allow. */
+	.stats {
+		margin: 4px 0 0 50%;
+		transform: translateX(-50%);
+	}
 	.shot-panel {
-		bottom: 112px;
+		bottom: 104px;
+	}
+}
+@media (pointer: coarse) and (min-width: 386px) and (max-width: 760px) and (orientation: portrait) {
+	.shot-panel {
+		bottom: 90px;
 	}
 }
 /* Touch screens zoom to the play area (game.js), so the grass and scenery that crop fade out instead of ending
