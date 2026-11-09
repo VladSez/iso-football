@@ -220,7 +220,7 @@ A before scenario runs against the old code, so it can't wait for selectors or s
 - `storage` sets localStorage before the page loads. That's how to open straight into a pitch (`neighborhood`, `rooftop`, `beach`, `snow`, `overpass`) or a sound setting (`all`, `effects`, `off`). The keys live in `dist/game.js`; grep for `iso-football:`. Session stats aren't saved, so stage a few shots if the header should show more than 00.
 - Turn sound off. It's muted anyway, and it skips the audio-unlock path.
 - Wait for the page to be ready before shooting, at least `{ "wait": 800 }` so the pitch has baked and drawn, so no blank frame lands in the PR.
-- The viewport is set once per scenario, so a phone shot needs its own scenario file with `"viewport": [375, 812]`, which also switches on mobile emulation. Add one whenever layout changed.
+- The viewport is set once per scenario, so a phone shot needs its own scenario file with `"viewport": [375, 812]`, which also switches on mobile emulation and touch, so the page shows the stick and Shoot buttons. Add one whenever layout changed.
 - Shots: the player starts aimed at the goal with a chip selected. Holding `Space` for about 700ms (roughly 60% power) from the starting spot chipped the keeper and scored when last checked; press `KeyC` first for a low shot. Check the frames, since keeper and aim changes move these numbers.
 - Keep clips to 3–6 seconds of the one action that matters. The script prints each file's size and warns over GitHub's 10 MB limit. If you get the warning, shorten the clip, or lower `gifWidth` and `gifFps` on the record step (defaults 720 and 12).
 
