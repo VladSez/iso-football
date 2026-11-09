@@ -5,9 +5,9 @@ import {
 	GRAVITY,
 	createShot,
 	stepBall,
-} from './physics.js?v=6'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=6'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=6'
+} from './physics.js?v=14'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=14'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=14'
 import {
 	KICKS,
 	TARGET,
@@ -17,7 +17,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=6'
+} from './shootout.js?v=14'
 import {
 	BALLS,
 	ROUNDS as TARGET_ROUNDS,
@@ -25,7 +25,7 @@ import {
 	totals,
 	roundResult as targetRoundResult,
 	nextRound,
-} from './targets.js?v=6'
+} from './targets.js?v=14'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -96,6 +96,8 @@ const nodes = Object.fromEntries(
 		'stick-knob',
 		'turn',
 		'callout',
+		'callout-title',
+		'callout-detail',
 		'pause-overlay',
 		'resume',
 	].map((id) => [id, document.getElementById(id)]),
@@ -327,7 +329,8 @@ let sceneBox
 function bakePitch() {
 	const court = state.court
 	zb.fill(-1e9)
-	pix.fill(rgb(255, 255, 255))
+	// Transparent, so the pitch's drop shadow in style.css follows its edge instead of the canvas box.
+	pix.fill(0)
 	ground.fill(0)
 	kinds.fill(KIND_NONE)
 	shadowMask.fill(0)
@@ -368,10 +371,9 @@ function measureScene() {
 		box.right = Math.max(box.right, ix + 1 + margin)
 		box.bottom = Math.max(box.bottom, iy + 1 + margin)
 	}
-	const white = rgb(255, 255, 255)
 	for (let iy = 0; iy < H; iy++)
 		for (let ix = 0; ix < W; ix++)
-			if (bakedPix[iy * W + ix] !== white) include(ix, iy, 0)
+			if (bakedPix[iy * W + ix] !== 0) include(ix, iy, 0)
 	for (const leaf of leaves)
 		for (let n = 0; n < leaf.pixels.length; n += 4)
 			include(leaf.pixels[n], leaf.pixels[n + 1], 1)
@@ -395,7 +397,7 @@ function updateStats() {
 	})
 	if (state.shootout) {
 		const kicks = state.shootout
-		nodes.goals.textContent = `${score(kicks)}/${TARGET}`
+		setGoals(`${score(kicks)}/${TARGET}`)
 		nodes.shots.textContent = String(summarize(kicks).saves)
 		nodes.saves.textContent = `${kicks.length}/${KICKS}`
 		nodes.accuracy.textContent = `${state.cup.round + 1}/${ROUNDS.length}`
@@ -405,17 +407,35 @@ function updateStats() {
 		const { balls, standing } = state.targets
 		const { round, bests } = state.course
 		const down = standing.filter((up) => !up).length
-		nodes.goals.textContent = `${down}/${standing.length}`
+		setGoals(`${down}/${standing.length}`)
 		nodes.shots.textContent = `${balls.length}/${BALLS}`
 		nodes.saves.textContent = bests[round] ? String(bests[round]) : '—'
 		nodes.accuracy.textContent = `${round + 1}/${TARGET_ROUNDS.length}`
 		return
 	}
-	for (const name of ['goals', 'shots', 'saves'])
+	setGoals(String(state.goals).padStart(2, '0'))
+	for (const name of ['shots', 'saves'])
 		nodes[name].textContent = String(state[name]).padStart(2, '0')
-	nodes.accuracy.textContent = state.shots
-		? `${Math.round((state.goals / state.shots) * 100)}%`
+	// A ball still in the air isn't a goal or a miss yet, so accuracy waits for its outcome instead of dipping at the kick.
+	const settled = state.shots - (state.ball && !state.ball.outcome ? 1 : 0)
+	nodes.accuracy.textContent = settled
+		? `${Math.round((state.goals / settled) * 100)}%`
 		: '—'
+}
+
+// The goal count pops when it goes up, but not when a new round resets it or the mode changes.
+function setGoals(text) {
+	const { goals } = nodes
+	const isUp = goals.dataset.mode === state.mode && parseInt(text) > parseInt(goals.textContent)
+	if (isUp) replayAnimation(goals, 'scored')
+	goals.dataset.mode = state.mode
+	goals.textContent = text
+}
+
+function replayAnimation(node, className) {
+	node.classList.remove(className)
+	void node.offsetWidth
+	node.classList.add(className)
 }
 
 function updateMeter() {
@@ -906,7 +926,7 @@ function update(delta) {
 			else if (event === 'goal') {
 				if (state.mode === 'practice') state.goals++
 				state.scoredAt = state.time
-				showCallout('GOAL!', 'BACK OF THE NET.')
+				showCallout()
 				setFeedback(
 					state.shotKind === 'chip'
 						? 'Lovely chip. Goal!'
@@ -929,14 +949,8 @@ function update(delta) {
 		if (state.returnAt !== undefined && state.time >= state.returnAt)
 			returnBall()
 	}
-	if (state.time - state.scoredAt > 1.7) nodes.callout.hidden = true
+	if (state.time - state.scoredAt > 1.8) nodes.callout.hidden = true
 	updateMeter()
-}
-
-function showCallout(title, note) {
-	nodes.callout.firstChild.nodeValue = title
-	nodes.callout.querySelector('small').textContent = note
-	nodes.callout.hidden = false
 }
 
 // The ball went in: check which ring, if any, it went through on the way.
@@ -950,7 +964,7 @@ function hitRing() {
 	state.ball.hit = true
 	state.scoredAt = state.time
 	const up = round.standing.filter(Boolean).length
-	showCallout('HIT!', `${target.name.toUpperCase()}.`)
+	showCallout('HIT!', target.name.toUpperCase())
 	setFeedback(
 		up ? `${target.name}! ${up} to go.` : `${target.name}! That's all of them.`,
 		true,
@@ -1099,7 +1113,8 @@ const PITCH_SPAN = (() => {
 	].map(([x, y]) => project(x, y, 0).sx)
 	return { left: xs[0], right: xs[1] }
 })()
-const SCENE_GAP = 16
+// The space kept around the scene. Phones keep less, so their smaller pitch gets the height.
+const SCENE_GAP = IS_TOUCH ? 10 : 16
 const header = document.querySelector('.header')
 const footer = document.querySelector('.footer')
 
@@ -1138,7 +1153,30 @@ const TOUCH_LANDSCAPE = matchMedia(
 )
 
 // Fills the space between the header and the shot panel with the drawn diorama, ignoring the
-// canvas's white margins, which may run under them.
+// canvas's empty margins, which may run under them.
+function goalDetail() {
+	if (!state.shootout) return state.shotKind === 'chip' ? 'OVER THE KEEPER' : 'BACK OF THE NET'
+	const goals = score(state.shootout) + 1
+	return `${goals} OF ${TARGET}${goals === TARGET ? ' · THROUGH' : ' TO GO THROUGH'}`
+}
+
+// The popup over the crossbar: HIT! with a target's name, or GOAL! with what happened. A shootout kick is not on
+// the sheet yet, so that goal is counted by hand.
+function showCallout(title = 'GOAL!', detail = goalDetail()) {
+	nodes['callout-title'].textContent = title
+	nodes['callout-detail'].textContent = detail
+	nodes.callout.hidden = false
+	replayAnimation(nodes.callout, 'celebrate')
+}
+
+// Pins the GOAL! popup just above the crossbar, wherever the canvas has been moved to.
+function placeCallout() {
+	const bar = project(GOAL.x, 0, GOAL.height)
+	const scale = canvas.offsetWidth / W
+	nodes.callout.style.left = `${canvas.offsetLeft + bar.sx * scale}px`
+	nodes.callout.style.top = `${canvas.offsetTop + (bar.sy - 6) * scale}px`
+}
+
 function resize() {
 	const stage = nodes.stage.getBoundingClientRect()
 	// The stats' white backing reaches below the header's own box.
@@ -1171,6 +1209,7 @@ function resize() {
 	canvas.style.height = `${H * scale}px`
 	canvas.style.left = `${left}px`
 	canvas.style.top = `${canvasTop}px`
+	placeCallout()
 }
 
 function fitPlayArea(stage, top, bottom) {
@@ -1183,15 +1222,19 @@ function fitPlayArea(stage, top, bottom) {
 		(right - left) / (box.right - box.left),
 		(bottom - top) / (box.bottom - box.top),
 	)
+	// Centred on the screen, like iso-hoops, unless the pitch is too wide for that and would run under the settings.
+	const half = ((box.right - box.left) / 2) * scale
+	const centreX = clamp(stage.width / 2, left + half, right - half)
 	canvas.style.width = `${W * scale}px`
 	canvas.style.height = `${H * scale}px`
-	canvas.style.left = `${(left + right) / 2 - ((box.left + box.right) / 2) * scale}px`
+	canvas.style.left = `${centreX - ((box.left + box.right) / 2) * scale}px`
 	canvas.style.top = `${(top + bottom) / 2 - stage.top - ((box.top + box.bottom) / 2) * scale}px`
 	// style.css fades the scenery out across the gaps around the play area.
 	const fade = nodes.stage.style
 	fade.setProperty('--fit-top', `${top - SCENE_GAP - stage.top}px`)
 	fade.setProperty('--fit-bottom', `${bottom + SCENE_GAP - stage.top}px`)
 	fade.setProperty('--fit-left', `${left - SCENE_GAP}px`)
+	placeCallout()
 }
 
 function openHelp() {
@@ -1261,8 +1304,13 @@ window.addEventListener('keyup', (event) => {
 	if (event.code === 'Space') releaseShot('keyboard')
 })
 window.addEventListener('blur', () => pauseGame(true))
+// Switching apps on a phone can land a stray touch on the pitch, which reads as aiming at that spot and stops the
+// player facing the goal. Coming back starts from facing the goal again.
 document.addEventListener('visibilitychange', () => {
-	if (document.hidden) pauseGame(true)
+	if (!document.hidden) return
+	pauseGame(true)
+	state.pointer = undefined
+	updateAim()
 })
 nodes.shoot.addEventListener('pointerdown', (event) => {
 	if (event.button !== 0) return
@@ -1275,8 +1323,6 @@ nodes.shoot.addEventListener('pointerup', () => {
 	canvas.focus()
 })
 nodes.shoot.addEventListener('pointercancel', cancelInput)
-// iOS opens its text-selection loupe on a long press unless the default is prevented.
-nodes.shoot.addEventListener('contextmenu', (event) => event.preventDefault())
 
 // The stick's offset from its centre is a screen-space direction, like WASD, scaled to 0..1.
 const STICK_DEAD_ZONE = 0.15
@@ -1335,6 +1381,13 @@ for (const button of nodes.turn.children) {
 			state.keys.delete(key)
 		})
 }
+// iOS starts its long-press text selection and Copy menu from touch events, which user-select: none and a
+// prevented pointerdown don't always stop, so the held controls cancel the touch itself. Pointer events still fire.
+for (const control of [nodes.shoot, nodes.stick, ...nodes.turn.children])
+	for (const type of ['touchstart', 'contextmenu', 'selectstart'])
+		control.addEventListener(type, (event) => event.preventDefault(), {
+			passive: false,
+		})
 // iOS Safari can start a pinch-zoom when a second finger lands outside the controls while a thumb holds the stick,
 // Shoot or a turn button. Block it only while a control is held, so the page can still be zoomed otherwise.
 document.addEventListener('gesturestart', (event) => {
@@ -1556,3 +1609,14 @@ function frame(now) {
 	requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
+// The saved mode, pitch and sound are filled in by now, so the loading placeholders in style.css can go. Like iso-hoops,
+// they stay up until at least 250ms after navigation, so a fast load doesn't just flash them.
+setTimeout(
+	() => {
+		for (const node of document.querySelectorAll('.stats, .shot-panel, .settings'))
+			node.classList.add('ready')
+	},
+	Math.max(0, 250 - performance.now()),
+)
+// The canvas shows once its first frame is drawn: this callback runs right after frame() in the same animation frame.
+requestAnimationFrame(() => nodes.stage.classList.add('ready'))

@@ -80,7 +80,11 @@ const page = await connect(targets.find(target => target.type === 'page').webSoc
 const written = []
 try {
 	await page.send('Page.enable')
-	await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile: width < 768 })
+	// A phone held sideways is wider than 768px, so landscape scenarios set "touch": true themselves.
+	const isPhone = scenario.touch ?? width < 768
+	await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile: isPhone })
+	// The game shows the stick and Shoot only when (pointer: coarse) matches, which needs touch, not just a narrow screen.
+	if (isPhone) await page.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
 	const url = new URL(scenario.path ?? '/', origin).href
 	await navigate(url)
 	if (scenario.storage) {
