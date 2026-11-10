@@ -24,6 +24,7 @@ export function createShot(player, yaw, power, kind) {
 		bounces: 0,
 		outcome: undefined,
 		postHit: false,
+		frame: undefined,
 	}
 }
 
@@ -62,9 +63,10 @@ export function stepBall(ball, delta, keeper) {
 			const t = (previousX - keeper.x) / (previousX - ball.x)
 			const y = previousY + (ball.y - previousY) * t
 			const z = previousZ + (ball.z - previousZ) * t
-			const reach = keeper.diving ? (keeper.diveReach ?? 0.88) : 0.43
+			// The defaults are the free-practice keeper's; a high dive gets a hand to chips dropping under the bar.
+			const reach = keeper.diving ? (keeper.diveReach ?? 1) : 0.43
 			const top = keeper.diving
-				? (keeper.diveTop ?? 1.15)
+				? (keeper.diveTop ?? 1.6)
 				: (keeper.standTop ?? 1.7)
 			if (
 				Math.abs(y - keeper.y) < reach + BALL_RADIUS &&
@@ -96,6 +98,8 @@ export function stepBall(ball, delta, keeper) {
 				ball.x = GOAL.x + frameRadius + 0.01
 				ball.postHit = true
 				if (hitsBar) ball.vz *= -0.5
+				// Which part of the frame it struck, for the crossbar challenge. The corner counts as the bar.
+				ball.frame = hitsBar ? 'bar' : 'post'
 				ball.outcome = 'post'
 				events.push('post')
 			}
