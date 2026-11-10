@@ -34,7 +34,7 @@
 			content="Neighborhood Football: an isometric pixel-art pitch with a goal, a goalkeeper and a striker."
 		/>
 		<meta name="twitter:card" content="summary_large_image" />
-		<link rel="stylesheet" href="style.css?v=15" />
+		<link rel="stylesheet" href="style.css?v=16" />
 	</head>
 	<body>
 		<header class="header">
@@ -158,6 +158,18 @@
 						><label
 							><input type="radio" name="mode" value="targets" /><span
 								>Target practice</span
+							></label
+						><label
+							><input type="radio" name="mode" value="crossbar" /><span
+								>Crossbar challenge</span
+							></label
+						><label
+							><input type="radio" name="mode" value="world" /><span
+								>Around the world</span
+							></label
+						><label
+							><input type="radio" name="mode" value="rush" /><span
+								>60-second rush</span
 							></label
 						>
 					</fieldset>
@@ -348,6 +360,25 @@
 				take that round again.
 			</p>
 			<p>
+				Crossbar challenge empties the net again and gives you ten balls,
+				each from its own spot, further out as you go. Ring the crossbar for
+				three points or a post for one. A goal earns nothing, and full power
+				sails over.
+			</p>
+			<p>
+				Around the world puts you on seven spots in an arc around the box,
+				with the keeper back. Score from a spot to move on to the next. A miss
+				or a save costs one of three lives, and the third ends the trip. Get
+				all the way round to go on: each of the four rounds moves the arc
+				further back, from 8 m to 14 m. Run out of lives and the run starts
+				over from round one.
+			</p>
+			<p>
+				60-second rush is free practice against the clock: score as many as
+				you can in a minute. The clock starts with your first kick, and the
+				ball comes back much sooner.
+			</p>
+			<p>
 				Plays offline too. Once the pitch has loaded, it works without an
 				internet connection. To keep it close, install it:
 				<span class="pointer-only"
@@ -391,8 +422,8 @@
 		<script>
 			window.PP_SCENE = { originY: 16, shadowX: 1.05, shadowY: -0.22 }
 		</script>
-		<script src="engine.js?v=15"></script>
-		<script type="module" src="game.js?v=15"></script>
+		<script src="engine.js?v=16"></script>
+		<script type="module" src="game.js?v=16"></script>
 		<script>
 			// Saves the game for offline play. Skipped when running locally, where edits
 			// would otherwise be hidden behind the saved copies.

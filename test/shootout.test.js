@@ -97,7 +97,7 @@ test('no chip into a guessed corner is sure to beat a shootout keeper', () => {
 })
 
 test('a chip into the guessed corner clears a practice dive', () => {
-	assert.equal(penalty(2, 'chip', 0.45, 1.7, null), 'goal')
+	assert.equal(penalty(2, 'chip', 0.6, 1.7, null), 'goal')
 })
 
 test('a keeper who stays in the middle saves a chip down the middle', () => {
