@@ -5,9 +5,9 @@ import {
 	GRAVITY,
 	createShot,
 	stepBall,
-} from './physics.js?v=15'
-import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=15'
-import { COURTS, gradeFrame, line3D } from './courts.js?v=15'
+} from './physics.js?v=16'
+import { startAudio, setSound, setAudioPaused, playSound } from './audio.js?v=16'
+import { COURTS, gradeFrame, line3D } from './courts.js?v=16'
 import {
 	KICKS,
 	TARGET,
@@ -17,7 +17,7 @@ import {
 	advance,
 	summarize,
 	keeperGuess,
-} from './shootout.js?v=15'
+} from './shootout.js?v=16'
 import {
 	BALLS,
 	ROUNDS as TARGET_ROUNDS,
@@ -25,7 +25,30 @@ import {
 	totals,
 	roundResult as targetRoundResult,
 	nextRound,
-} from './targets.js?v=15'
+} from './targets.js?v=16'
+import {
+	BALLS as CROSSBAR_BALLS,
+	SPOTS as CROSSBAR_SPOTS,
+	POINTS,
+	pointsFor,
+	tally,
+	isOver,
+} from './crossbar.js?v=16'
+import {
+	LIVES,
+	SPOT_COUNT,
+	ROUNDS as WORLD_ROUNDS,
+	startTrip,
+	shoot,
+	nextRound as nextWorldRound,
+} from './world.js?v=16'
+import {
+	DURATION,
+	RETURN_DELAY,
+	secondsLeft,
+	isTimeUp,
+	summarize as summarizeRush,
+} from './rush.js?v=16'
 
 // Pixel Plays supplies the rasterizer, camera, vegetation and articulated figures.
 const PLAYER_COLORS = {
@@ -117,6 +140,22 @@ const PENALTY_SPOT = { x: -1, y: 0 }
 const KEEPER_DIVE_Y = 1.7
 // A keeper who stays in the middle can jump for a chip down the middle.
 const KEEPER_STAND_TOP = 2.3
+const KEEPER_REACTION = 0.2
+// Where the keeper waits: just off the goal line, stepping out toward a striker who comes within 5 m.
+const KEEPER_LINE = -7.95
+const KEEPER_OUT = { from: 5, max: 0.6, perMetre: 0.3, gap: 1.4 }
+// How fast it shuffles to its ready spot as the striker moves.
+const KEEPER_READY_SPEED = 2.5
+
+// The keeper's ready spot narrows the angle: on the line from the striker to the middle of the goal, off its
+// line toward a close striker, but never closer than `gap` to the striker, so the ball always starts in front.
+function keeperReady(player) {
+	const distance = Math.hypot(player.x - GOAL.x, player.y)
+	const step = clamp((KEEPER_OUT.from - distance) * KEEPER_OUT.perMetre, 0, KEEPER_OUT.max)
+	const x = Math.min(KEEPER_LINE + step, player.x - KEEPER_OUT.gap)
+	const y = clamp((player.y * (x - GOAL.x)) / (player.x - GOAL.x), -2, 2)
+	return { x, y }
+}
 const state = {
 	mode: 'practice',
 	shootout: undefined,
@@ -126,12 +165,22 @@ const state = {
 	// The target run: the round you're on, the fewest balls you've cleared each round in (0 for not
 	// yet), and runs completed.
 	course: { round: 0, bests: TARGET_ROUNDS.map(() => 0), clears: 0 },
+	// The crossbar challenge: the balls kicked so far, and your best score and rounds played.
+	crossbar: undefined,
+	bar: { best: 0, rounds: 0 },
+	// Around the world: the round being played, the spot you're on, lives lost and kicks taken. Then the round
+	// you're on, your furthest spot in each round, and runs completed.
+	world: undefined,
+	travels: { round: 0, bests: WORLD_ROUNDS.map(() => 0), runs: 0 },
+	// The 60-second rush: when the clock started and the shots so far, and your best and rushes played.
+	rush: undefined,
+	rushes: { best: 0, played: 0 },
 	player: { x: 3.4, y: 1.2 },
 	yaw: Math.atan2(0.6, -12.2),
 	pointer: undefined,
 	stick: { x: 0, y: 0 },
 	keeper: {
-		x: -7.95,
+		x: KEEPER_LINE,
 		y: 0,
 		diving: false,
 		diveDirection: 1,
@@ -156,6 +205,11 @@ const state = {
 	scoredAt: -10,
 	court: COURTS.neighborhood,
 }
+
+// Target practice and the crossbar challenge have an empty net.
+const hasKeeper = () => !state.targets && !state.crossbar
+// The penalty taker, the crossbar challenge and around the world kick from set spots, and only turn.
+const onSpot = () => Boolean(state.shootout || state.crossbar || state.world)
 
 function drawGoal() {
 	const { x, halfWidth: width, height, depth } = GOAL
@@ -324,6 +378,18 @@ function updateFallen(delta) {
 	})
 }
 
+const SPOT_NEXT = [248, 244, 230]
+const SPOT_DONE = [120, 140, 96]
+
+// Around the world: a chalk mark on each spot still to come, and a faint one where you've scored.
+function drawSpots() {
+	WORLD_ROUNDS[state.world.round].spots.forEach((spot, index) => {
+		if (index === state.world.spot) return
+		const color = index < state.world.spot ? SPOT_DONE : SPOT_NEXT
+		drawDisc(spot.x, spot.y, 0.02, 0.2, Math.PI / 2, color, 0)
+	})
+}
+
 let sceneBox
 
 function bakePitch() {
@@ -389,6 +455,9 @@ const STAT_NAMES = {
 	practice: ['GOALS', 'SHOTS', 'SAVES', 'ACCURACY'],
 	shootout: ['GOALS', 'SAVED', 'KICKS', 'ROUND'],
 	targets: ['TARGETS', 'BALLS', 'BEST', 'ROUND'],
+	crossbar: ['POINTS', 'BALLS', 'BEST', 'BARS'],
+	world: ['SPOT', 'LIVES', 'BEST', 'ROUND'],
+	rush: ['GOALS', 'SHOTS', 'TIME', 'BEST'],
 }
 
 function updateStats() {
@@ -411,6 +480,33 @@ function updateStats() {
 		nodes.shots.textContent = `${balls.length}/${BALLS}`
 		nodes.saves.textContent = bests[round] ? String(bests[round]) : '—'
 		nodes.accuracy.textContent = `${round + 1}/${TARGET_ROUNDS.length}`
+		return
+	}
+	if (state.crossbar) {
+		const { points, bars } = tally(state.crossbar)
+		setGoals(String(points))
+		nodes.shots.textContent = `${state.crossbar.length}/${CROSSBAR_BALLS}`
+		nodes.saves.textContent = state.bar.rounds ? String(state.bar.best) : '—'
+		nodes.accuracy.textContent = String(bars)
+		return
+	}
+	if (state.world) {
+		const { spot, misses, round } = state.world
+		const best = state.travels.bests[round]
+		setGoals(`${Math.min(spot + 1, SPOT_COUNT)}/${SPOT_COUNT}`)
+		nodes.shots.textContent = String(LIVES - misses)
+		nodes.saves.textContent = best ? `${best}/${SPOT_COUNT}` : '—'
+		nodes.accuracy.textContent = `${round + 1}/${WORLD_ROUNDS.length}`
+		return
+	}
+	if (state.rush) {
+		const numbers = summarizeRush(state.rush.shots)
+		setGoals(String(numbers.goals).padStart(2, '0'))
+		nodes.shots.textContent = String(numbers.shots).padStart(2, '0')
+		updateClock()
+		nodes.accuracy.textContent = state.rushes.played
+			? String(state.rushes.best)
+			: '—'
 		return
 	}
 	setGoals(String(state.goals).padStart(2, '0'))
@@ -436,6 +532,12 @@ function replayAnimation(node, className) {
 	node.classList.remove(className)
 	void node.offsetWidth
 	node.classList.add(className)
+}
+
+function updateClock() {
+	const seconds = secondsLeft(state.rush.startedAt, state.time)
+	const text = `0:${String(seconds).padStart(2, '0')}`.replace('0:60', '1:00')
+	if (nodes.saves.textContent !== text) nodes.saves.textContent = text
 }
 
 function updateMeter() {
@@ -477,11 +579,16 @@ function releaseShot(source) {
 	state.chargeSource = undefined
 	state.returnAt = undefined
 	if (state.mode === 'practice') state.shots++
+	// The rush clock starts with the first kick.
+	if (state.rush && state.rush.startedAt === undefined)
+		state.rush.startedAt = state.time
 	state.kick = 0.35
-	state.keeper.reaction = 0.2
 	state.keeper.diving = false
 	const ball = state.ball
 	const timeToKeeper = ball.vx < -0.1 ? (state.keeper.x - ball.x) / ball.vx : 0
+	// The keeper reads a shot after 0.2 s, but a close one sooner: within half the ball's time to reach it, so
+	// walking up to the goal area no longer beats a keeper frozen on the spot.
+	state.keeper.reaction = Math.min(KEEPER_REACTION, timeToKeeper * 0.5)
 	const aimY = ball.y + ball.vy * timeToKeeper
 	if (state.shootout) {
 		// A penalty is too quick to read, so the keeper guesses a side as the ball is struck.
@@ -497,9 +604,11 @@ function releaseShot(source) {
 			? 'The keeper guesses…'
 			: state.targets
 				? 'Ring it…'
-				: state.shotKind === 'chip'
-					? 'Up and over?'
-					: 'Pick your corner.',
+				: state.crossbar
+					? 'Find the woodwork…'
+					: state.shotKind === 'chip'
+						? 'Up and over?'
+						: 'Pick your corner.',
 	)
 	updateStats()
 	updateMeter()
@@ -535,6 +644,7 @@ function returnBall() {
 		kind: state.shotKind,
 		outcome: state.ball.outcome,
 		hit: Boolean(state.ball.hit),
+		frame: state.ball.frame,
 	}
 	state.phase = 'ready'
 	state.ball = undefined
@@ -544,6 +654,9 @@ function returnBall() {
 	updateMeter()
 	if (state.shootout) recordPenalty(kick)
 	else if (state.targets) recordBall(kick)
+	else if (state.crossbar) recordCrossbar(kick)
+	else if (state.world) recordWorldKick(kick)
+	else if (state.rush) recordRushShot(kick)
 	else setFeedback('Find your spot. Have another go.')
 }
 
@@ -687,7 +800,22 @@ function startTargets() {
 	updateStats()
 }
 
-const SHEET_MARKS = { goal: '●', save: '○', miss: '×', post: '×' }
+// A kick on a shootout, around-the-world or rush card: a football for a goal, faded for a save, × for a miss.
+const KICK_MARKS = {
+	goal: ['hit', 'goal'],
+	save: ['in', 'saved'],
+	miss: ['miss', 'missed'],
+	post: ['miss', 'off the woodwork'],
+}
+const kickMark = (kick) => ballMark(...KICK_MARKS[kick.outcome])
+const kickKey = () => [
+	ballMark('hit', 'goal'),
+	' goal · ',
+	ballMark('in', 'saved'),
+	' saved · ',
+	ballMark('miss', 'missed'),
+	' missed',
+]
 
 function showRoundCard(played, result, next) {
 	const kicks = state.shootout
@@ -709,9 +837,9 @@ function showRoundCard(played, result, next) {
 		caption: 'KICK BY KICK',
 		row: 'KICKS',
 		marks: Array.from({ length: KICKS }, (_, index) =>
-			kicks[index] ? SHEET_MARKS[kicks[index].outcome] : '·',
+			kicks[index] ? kickMark(kicks[index]) : ballMark('spare', 'not taken'),
 		),
-		key: '● goal · ○ saved · × missed',
+		key: [...kickKey(), ' · ', ballMark('spare', 'not taken'), ' not taken'],
 		numbers: [
 			['GOALS', `${numbers.goals} of ${kicks.length}`],
 			['SAVED', String(numbers.saves)],
@@ -723,7 +851,7 @@ function showRoundCard(played, result, next) {
 	})
 }
 
-// The card after a shootout round or a round of target practice.
+// The card after a round in any mode but free practice.
 function fillCard({
 	stage,
 	title,
@@ -743,12 +871,7 @@ function fillCard({
 	nodes['round-note'].textContent = note
 	card.querySelector('.kick-sheet caption').textContent = caption
 	card.querySelector('.kick-sheet th').textContent = row
-	// Text marks are spaced out; ball marks space themselves.
-	nodes['sheet-you'].replaceChildren(
-		...marks.flatMap((mark, index) =>
-			typeof mark === 'string' && index ? [' ', mark] : [mark],
-		),
-	)
+	nodes['sheet-you'].replaceChildren(...marks)
 	card.querySelector('.sheet-key').replaceChildren(...[key].flat())
 	const cells = card.querySelectorAll('.round-numbers div')
 	numbers.forEach(([label, value], index) => {
@@ -770,17 +893,237 @@ const BALL_MARK_LABELS = {
 	spare: 'not needed',
 }
 
-// A ball on the target card's sheet: the header's football, or × for a miss.
-function ballMark(kind) {
+// A ball on a card's sheet: the logo's pixel football, × for a miss, or the crossbar points it earned.
+function ballMark(kind, label = BALL_MARK_LABELS[kind], points) {
 	const mark = document.createElement('span')
 	mark.className = `ball-mark ${kind}`
 	mark.setAttribute('role', 'img')
-	mark.setAttribute('aria-label', BALL_MARK_LABELS[kind])
+	mark.setAttribute('aria-label', label)
 	if (kind === 'miss') mark.textContent = '×'
+	else if (kind === 'points') mark.textContent = String(points)
 	else
-		mark.innerHTML =
-			'<svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="12.5" fill="none" stroke="currentColor" stroke-width="2.6" /><path d="M15 9.5l4.6 3.4-1.8 5.4h-5.6l-1.8-5.4z" fill="currentColor" /></svg>'
+		mark.innerHTML = '<img src="favicon.svg" alt="" width="16" height="16" />'
 	return mark
+}
+
+// A mark per ball on the crossbar card: its points, a faded football for a goal, or × for a miss.
+function crossbarMark(ball) {
+	if (ball.outcome === 'post')
+		return ballMark('points', ball.frame === 'bar' ? 'crossbar' : 'post', pointsFor(ball))
+	return ball.outcome === 'goal' ? ballMark('in', 'in, no points') : ballMark('miss')
+}
+
+function startCrossbar() {
+	state.crossbar = []
+	goToSpot(CROSSBAR_SPOTS[0])
+	setFeedback(
+		`Crossbar challenge. ${CROSSBAR_BALLS} balls: ${POINTS.bar} points for the bar, ${POINTS.post} for a post, nothing for a goal.`,
+	)
+	updateStats()
+}
+
+function recordCrossbar(ball) {
+	state.crossbar.push(ball)
+	updateStats()
+	if (isOver(state.crossbar)) return finishCrossbar()
+	goToSpot(CROSSBAR_SPOTS[state.crossbar.length])
+	const left = CROSSBAR_BALLS - state.crossbar.length
+	const { points } = tally(state.crossbar)
+	setFeedback(
+		`${plural(points, 'point')} so far, ${plural(left, 'ball')} left.`,
+	)
+}
+
+function finishCrossbar() {
+	const balls = state.crossbar
+	const numbers = tally(balls)
+	const previous = state.bar.rounds ? state.bar.best : undefined
+	const best = previous === undefined || numbers.points > previous
+	state.bar = {
+		best: Math.max(state.bar.best, numbers.points),
+		rounds: state.bar.rounds + 1,
+	}
+	save(CROSSBAR_STORAGE_KEY, JSON.stringify(state.bar))
+	fillCard({
+		stage: `CROSSBAR CHALLENGE · ${plural(numbers.points, 'POINT').toUpperCase()}`,
+		title:
+			numbers.points === 0
+				? 'Not a sniff of the woodwork.'
+				: best && previous !== undefined
+					? 'A new best!'
+					: `${plural(numbers.points, 'point')}.`,
+		note: best
+			? previous === undefined
+				? 'That sets your best. The next ten start from the first spot.'
+				: `Up from ${plural(previous, 'point')}. The next ten start from the first spot.`
+			: `Your best is ${plural(previous, 'point')}. The next ten start from the first spot.`,
+		caption: 'BALL BY BALL',
+		row: 'BALLS',
+		marks: balls.map(crossbarMark),
+		key: [
+			ballMark('points', 'crossbar', POINTS.bar),
+			' crossbar · ',
+			ballMark('points', 'post', POINTS.post),
+			' post · ',
+			ballMark('in', 'in, no points'),
+			' in, no points · ',
+			ballMark('miss'),
+			' missed',
+		],
+		numbers: [
+			['POINTS', String(numbers.points)],
+			['BAR', String(numbers.bars)],
+			['POSTS', String(numbers.posts)],
+		],
+		shots: `${plural(numbers.goals, 'ball')} went in for nothing, and ${numbers.misses} missed the frame.`,
+		next: 'Ten more balls',
+		sound: numbers.points ? 'goal' : 'save',
+	})
+}
+
+// The shooter walks to the spot, faces the goal and waits.
+function goToSpot(spot) {
+	state.player = { ...spot }
+	state.yaw = Math.atan2(-spot.y, GOAL.x - spot.x)
+	state.pointer = undefined
+}
+
+const worldSpots = () => WORLD_ROUNDS[state.world.round].spots
+
+function startWorld() {
+	const { round } = state.travels
+	state.world = { ...startTrip(), round }
+	goToSpot(worldSpots()[0])
+	// Unlike free practice, the keeper jumps for chips down the middle, so you have to pick a corner.
+	state.keeper.standTop = KEEPER_STAND_TOP
+	setFeedback(
+		`Round ${round + 1}, ${WORLD_ROUNDS[round].distance} m out. Score from all ${SPOT_COUNT} spots; miss ${LIVES} times and you're out.`,
+	)
+	updateStats()
+}
+
+function recordWorldKick(kick) {
+	state.world = shoot(state.world, kick)
+	updateStats()
+	if (state.world.result) return finishWorld()
+	const { spot, misses } = state.world
+	if (kick.scored) goToSpot(worldSpots()[spot])
+	setFeedback(
+		kick.scored
+			? `On to spot ${spot + 1} of ${SPOT_COUNT}.`
+			: `${LIVES - misses === 1 ? 'Last life' : `${LIVES - misses} lives left`}. Try spot ${spot + 1} again.`,
+	)
+}
+
+function finishWorld() {
+	const { spot, kicks, result, round } = state.world
+	const { distance } = WORLD_ROUNDS[round]
+	const complete = result === 'complete'
+	const next = nextWorldRound(round, result)
+	const previous = state.travels.bests[round]
+	state.travels = {
+		round: next.round,
+		bests: state.travels.bests.map((best, index) =>
+			index === round ? Math.max(best, spot) : best,
+		),
+		runs: state.travels.runs + Number(next.complete),
+	}
+	save(WORLD_STORAGE_KEY, JSON.stringify(state.travels))
+	const numbers = summarize(kicks)
+	const bestNote =
+		spot > previous && previous
+			? `Further than ever here: your best was ${previous} of ${SPOT_COUNT}.`
+			: !complete && previous
+				? `Your best here is ${previous} of ${SPOT_COUNT}.`
+				: ''
+	const sentences = (...parts) => parts.filter(Boolean).join(' ')
+	fillCard({
+		stage: `ROUND ${round + 1} · ${distance} M · ${spot} OF ${SPOT_COUNT} SPOTS`,
+		title: next.complete
+			? 'Around the world, every round!'
+			: complete
+				? `On to round ${next.round + 1}.`
+				: `Out at spot ${spot + 1}.`,
+		note: next.complete
+			? sentences(
+					`That's ${plural(state.travels.runs, 'run')} complete.`,
+					`The next run starts from round one, ${WORLD_ROUNDS[0].distance} m out.`,
+				)
+			: complete
+				? sentences(
+						bestNote,
+						`Next up: the same ${SPOT_COUNT} spots, ${WORLD_ROUNDS[next.round].distance} m out.`,
+					)
+				: sentences(
+						bestNote,
+						round
+							? `The run starts over from round one, ${WORLD_ROUNDS[0].distance} m out.`
+							: 'Have another go.',
+					),
+		caption: 'KICK BY KICK',
+		row: 'KICKS',
+		marks: kicks.map(kickMark),
+		key: kickKey(),
+		numbers: [
+			['SPOTS', `${spot} of ${SPOT_COUNT}`],
+			['SAVED', String(numbers.saves)],
+			['MISSED', String(numbers.misses)],
+		],
+		shots: `Chips: ${numbers.chipGoals} of ${numbers.chips} went in. Low shots: ${numbers.lowGoals} of ${numbers.lows} went in.`,
+		next: next.complete
+			? 'Start a new run'
+			: complete
+				? `On to round ${next.round + 1}`
+				: round
+					? 'Start a new run'
+					: 'Try again',
+		sound: complete ? 'goal' : 'save',
+	})
+}
+
+function startRush() {
+	state.rush = { startedAt: undefined, shots: [] }
+	setFeedback(`${DURATION}-second rush. The clock starts with your first kick.`)
+	updateStats()
+}
+
+function recordRushShot(shot) {
+	state.rush.shots.push(shot)
+	updateStats()
+	// update() ends the rush once time is up and no ball is in flight.
+	setFeedback(shot.scored ? 'Again!' : 'Quick, the next one.')
+}
+
+function finishRush() {
+	const numbers = summarizeRush(state.rush.shots)
+	const previous = state.rushes.played ? state.rushes.best : undefined
+	state.rushes = {
+		best: Math.max(state.rushes.best, numbers.goals),
+		played: state.rushes.played + 1,
+	}
+	save(RUSH_STORAGE_KEY, JSON.stringify(state.rushes))
+	const best = previous !== undefined && numbers.goals > previous
+	fillCard({
+		stage: `${DURATION}-SECOND RUSH · ${numbers.goals} IN ${numbers.shots}`,
+		title: best ? 'A new best!' : `${plural(numbers.goals, 'goal')}.`,
+		note: best
+			? `Up from ${previous}.`
+			: previous === undefined
+				? 'That sets your best.'
+				: `Your best is ${plural(previous, 'goal')}.`,
+		caption: 'SHOT BY SHOT',
+		row: 'SHOTS',
+		marks: state.rush.shots.map(kickMark),
+		key: kickKey(),
+		numbers: [
+			['GOALS', String(numbers.goals)],
+			['SHOTS', String(numbers.shots)],
+			['ACCURACY', `${numbers.accuracy}%`],
+		],
+		shots: `${plural(numbers.saves, 'save')} by the keeper, and ${numbers.misses} off target.`,
+		next: 'Another minute',
+		sound: 'goal',
+	})
 }
 
 function startShootout() {
@@ -789,6 +1132,7 @@ function startShootout() {
 	state.yaw = Math.PI
 	state.pointer = undefined
 	Object.assign(state.keeper, {
+		x: KEEPER_LINE,
 		y: 0,
 		diving: false,
 		diveTop: round.diveTop,
@@ -806,28 +1150,36 @@ function setMode(mode) {
 	state.ball = undefined
 	state.phase = 'ready'
 	state.returnAt = undefined
-	document.body.classList.toggle('shootout', mode === 'shootout')
+	document.body.classList.toggle(
+		'on-spot',
+		mode === 'shootout' || mode === 'crossbar' || mode === 'world',
+	)
+	state.shootout = undefined
 	state.targets = undefined
+	state.crossbar = undefined
+	state.world = undefined
+	state.rush = undefined
+	Object.assign(state.keeper, {
+		x: KEEPER_LINE,
+		y: 0,
+		diving: false,
+		diveTop: undefined,
+		diveReach: undefined,
+		standTop: undefined,
+		speed: undefined,
+	})
 	if (mode === 'shootout') {
 		state.player = { ...PENALTY_SPOT }
 		state.yaw = Math.PI
 		state.pointer = undefined
 		startShootout()
-	} else {
-		state.shootout = undefined
-		Object.assign(state.keeper, {
-			y: 0,
-			diving: false,
-			diveTop: undefined,
-			diveReach: undefined,
-			standTop: undefined,
-			speed: undefined,
-		})
-		if (mode === 'targets') startTargets()
-		else {
-			setFeedback('A little grass. All afternoon.')
-			updateStats()
-		}
+	} else if (mode === 'targets') startTargets()
+	else if (mode === 'crossbar') startCrossbar()
+	else if (mode === 'world') startWorld()
+	else if (mode === 'rush') startRush()
+	else {
+		setFeedback('A little grass. All afternoon.')
+		updateStats()
 	}
 	updateMeter()
 }
@@ -851,10 +1203,10 @@ function updateAim() {
 
 function updateKeeper(delta) {
 	const keeper = state.keeper
-	// Target practice has an empty goal.
-	if (state.targets) return
-	let target = clamp(state.player.y * 0.32, -1.65, 1.65)
-	let speed = 1.6
+	if (!hasKeeper()) return
+	const ready = keeperReady(state.player)
+	let target = ready.y
+	let speed = KEEPER_READY_SPEED
 	if (state.ball && !state.ball.outcome) {
 		keeper.reaction -= delta
 		if (keeper.reaction <= 0 && state.ball.vx < 0) {
@@ -867,6 +1219,9 @@ function updateKeeper(delta) {
 	}
 	if (state.ball?.outcome) return
 	keeper.y += clamp(target - keeper.y, -speed * delta, speed * delta)
+	// It steps in and out only while waiting; once the ball is struck it holds its line.
+	if (!state.ball)
+		keeper.x += clamp(ready.x - keeper.x, -speed * delta, speed * delta)
 }
 
 function update(delta) {
@@ -882,8 +1237,7 @@ function update(delta) {
 		Number(keys.has('KeyS') || keys.has('ArrowDown')) -
 		Number(keys.has('KeyW') || keys.has('ArrowUp')) +
 		state.stick.y
-	// The penalty taker stays on the spot and only turns.
-	const length = state.shootout ? 0 : Math.hypot(screenX, screenY)
+	const length = onSpot() ? 0 : Math.hypot(screenX, screenY)
 	state.walking = length > 0
 	if (length) {
 		// Keys always walk at full speed; a partly pushed stick walks slower, for small adjustments.
@@ -918,11 +1272,14 @@ function update(delta) {
 		const events = stepBall(
 			state.ball,
 			delta,
-			state.targets ? undefined : state.keeper,
+			hasKeeper() ? state.keeper : undefined,
 		)
 		for (const event of events) {
 			playSound(event)
 			if (event === 'goal' && state.targets) hitRing()
+			else if (event === 'goal' && state.crossbar)
+				setFeedback('In the net. No points for that.')
+			else if (event === 'post' && state.crossbar) ringFrame()
 			else if (event === 'goal') {
 				if (state.mode === 'practice') state.goals++
 				state.scoredAt = state.time
@@ -942,15 +1299,40 @@ function update(delta) {
 					state.targets ? 'Wide of the net.' : 'Just the next one, then.',
 				)
 			if (event !== 'bounce') {
-				state.returnAt = state.time + (event === 'goal' ? 1.8 : 1.5)
+				const delay = state.rush ? RETURN_DELAY : { goal: 1.8, other: 1.5 }
+				state.returnAt =
+					state.time + (event === 'goal' ? delay.goal : delay.other)
 				updateStats()
 			}
 		}
 		if (state.returnAt !== undefined && state.time >= state.returnAt)
 			returnBall()
 	}
+	if (state.rush) {
+		updateClock()
+		// Time's up: a ball already struck plays out and counts, anything else ends the rush now.
+		if (state.phase !== 'flight' && isTimeUp(state.rush.startedAt, state.time))
+			finishRush()
+	}
 	if (state.time - state.scoredAt > 1.8) nodes.callout.hidden = true
 	updateMeter()
+}
+
+// The ball struck the frame in the crossbar challenge: points.
+function ringFrame() {
+	const bar = state.ball.frame === 'bar'
+	const points = pointsFor(state.ball)
+	state.scoredAt = state.time
+	showCallout(
+		bar ? 'CROSSBAR!' : 'POST!',
+		`+${plural(points, 'POINT').toUpperCase()}`,
+	)
+	setFeedback(
+		bar
+			? `Off the bar! ${points} points.`
+			: `Off the post! ${plural(points, 'point')}.`,
+		true,
+	)
 }
 
 // The ball went in: check which ring, if any, it went through on the way.
@@ -1071,6 +1453,7 @@ function draw() {
 	drawLeaves(windTime)
 	drawGoal()
 	if (state.targets) drawTargets()
+	if (state.world) drawSpots()
 	drawAim()
 	const stride = state.walking ? Math.sin(state.stride) * 0.27 : 0.12
 	const kickPose = state.kick > 0 ? Math.sin((state.kick / 0.35) * Math.PI) : 0
@@ -1088,7 +1471,7 @@ function draw() {
 		PLAYER_COLORS,
 		dynamicAdd,
 	)
-	if (!state.targets) drawKeeper()
+	if (hasKeeper()) drawKeeper()
 	const dribble = state.walking ? 0.07 * Math.sin(state.stride * 2) : 0
 	const ball = state.ball ?? {
 		x: state.player.x + Math.cos(state.yaw) * (0.65 + dribble),
@@ -1155,6 +1538,10 @@ const TOUCH_LANDSCAPE = matchMedia(
 // Fills the space between the header and the shot panel with the drawn diorama, ignoring the
 // canvas's empty margins, which may run under them.
 function goalDetail() {
+	if (state.world) {
+		const spots = state.world.spot + 1
+		return spots === SPOT_COUNT ? 'ALL THE WAY ROUND' : `${spots} OF ${SPOT_COUNT} SPOTS`
+	}
 	if (!state.shootout) return state.shotKind === 'chip' ? 'OVER THE KEEPER' : 'BACK OF THE NET'
 	const goals = score(state.shootout) + 1
 	return `${goals} OF ${TARGET}${goals === TARGET ? ' · THROUGH' : ' TO GO THROUGH'}`
@@ -1434,6 +1821,9 @@ nodes['round-card'].addEventListener('close', () => {
 	setAudioPaused(state.paused)
 	if (state.shootout) startShootout()
 	if (state.targets) startTargets()
+	if (state.crossbar) startCrossbar()
+	if (state.world) startWorld()
+	if (state.rush) startRush()
 	canvas.focus()
 })
 nodes.resume.addEventListener('click', () => {
@@ -1549,10 +1939,16 @@ const MODES = {
 	practice: { label: 'Practice' },
 	shootout: { label: 'Shootout' },
 	targets: { label: 'Targets' },
+	crossbar: { label: 'Crossbar' },
+	world: { label: 'Around' },
+	rush: { label: 'Rush' },
 }
 const MODE_STORAGE_KEY = 'iso-football:mode'
 const CUP_STORAGE_KEY = 'iso-football:cup'
 const TARGETS_STORAGE_KEY = 'iso-football:target-run'
+const CROSSBAR_STORAGE_KEY = 'iso-football:crossbar'
+const WORLD_STORAGE_KEY = 'iso-football:around-the-world'
+const RUSH_STORAGE_KEY = 'iso-football:rush'
 const showMode = createMenu(
 	'mode',
 	(id) => MODES[id].label,
@@ -1588,6 +1984,32 @@ try {
 	)
 		state.course = { round, bests, clears }
 } catch {}
+// A saved record of two counts, or the fallback when it's missing or not two whole numbers.
+function readCounts(key, names, fallback) {
+	try {
+		const saved = JSON.parse(localStorage.getItem(key))
+		if (
+			names.every((name) => Number.isInteger(saved?.[name]) && saved[name] >= 0)
+		)
+			return Object.fromEntries(names.map((name) => [name, saved[name]]))
+	} catch {}
+	return fallback
+}
+state.bar = readCounts(CROSSBAR_STORAGE_KEY, ['best', 'rounds'], state.bar)
+try {
+	const { round, bests, runs } = JSON.parse(localStorage.getItem(WORLD_STORAGE_KEY))
+	const count = (value) => Number.isInteger(value) && value >= 0
+	if (
+		count(round) &&
+		round < WORLD_ROUNDS.length &&
+		count(runs) &&
+		Array.isArray(bests) &&
+		bests.length === WORLD_ROUNDS.length &&
+		bests.every((best) => count(best) && best <= SPOT_COUNT)
+	)
+		state.travels = { round, bests, runs }
+} catch {}
+state.rushes = readCounts(RUSH_STORAGE_KEY, ['best', 'played'], state.rushes)
 const mode = readSaved(MODE_STORAGE_KEY, MODES, 'practice')
 showMode(mode)
 setMode(mode)

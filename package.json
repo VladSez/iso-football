@@ -7,6 +7,6 @@
 	"scripts": {
 		"dev": "node serve.mjs",
 		"test": "node --test",
-		"check": "node --check dist/game.js && node --check dist/physics.js && node --check dist/audio.js && node --check dist/courts.js && node --check dist/shootout.js && node --check dist/targets.js"
+		"check": "node --check dist/game.js && node --check dist/physics.js && node --check dist/audio.js && node --check dist/courts.js && node --check dist/shootout.js && node --check dist/targets.js && node --check dist/crossbar.js && node --check dist/world.js && node --check dist/rush.js"
 	}
 }
