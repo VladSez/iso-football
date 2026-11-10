@@ -483,9 +483,13 @@ function updateStats() {
 		return
 	}
 	if (state.crossbar) {
-		const { points, bars } = tally(state.crossbar)
+		// A ball counts the moment it hits the frame, goes in or misses, not when it comes back.
+		const balls = state.ball?.outcome
+			? [...state.crossbar, state.ball]
+			: state.crossbar
+		const { points, bars } = tally(balls)
 		setGoals(String(points))
-		nodes.shots.textContent = `${state.crossbar.length}/${CROSSBAR_BALLS}`
+		nodes.shots.textContent = `${balls.length}/${CROSSBAR_BALLS}`
 		nodes.saves.textContent = state.bar.rounds ? String(state.bar.best) : '—'
 		nodes.accuracy.textContent = String(bars)
 		return
